@@ -1,0 +1,15 @@
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+backend/.env
+# Données locales régénérées au démarrage (règles mock, état, users.json avec hash)
+backend/app/data/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Divers
+.DS_Store
+*.log

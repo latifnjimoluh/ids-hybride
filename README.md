@@ -6,6 +6,7 @@
 
 | Fichier | Contenu |
 |---------|---------|
+| [recherche-ids-opensource.md](./recherche-ids-opensource.md) | **Panorama des IDS open source** : familles (NIDS/HIDS, signature/anomalie/hybride), moteurs NIDS (Snort, Suricata, Zeek), HIDS (OSSEC, Wazuh), approche hybride, datasets ML (NSL-KDD, UNSW-NB15, CIC-IDS2017), stack recommandée. |
 | [recherche-snort.md](./recherche-snort.md) | **Recherche approfondie sur Snort et son écosystème** : histoire, architecture interne, Snort 2 vs 3, DAQ, inspectors, langage de règles, rulesets, OpenAppID, Barnyard2, frontends, produits embarquant Snort (Cisco/pfSense...), Snort vs Suricata, limites & évasion. |
 | [guide-01-installation-snort3.md](./guide-01-installation-snort3.md) | **Installation & configuration de Snort 3 sur Ubuntu** : dépendances, libDAQ, compilation, snort.lua, HOME_NET, service systemd, tuning perf. |
 | [guide-02-regles-snort3.md](./guide-02-regles-snort3.md) | **Écriture de règles Snort 3** : anatomie, header, content, modificateurs, sticky buffers, PCRE, flowbits, detection_filter, exemples complets, tests. |

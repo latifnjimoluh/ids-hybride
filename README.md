@@ -79,7 +79,10 @@ docker compose up -d --build
 L'interface est sur **http://localhost:8000** (identifiants par défaut : `admin` / `admin`).
 Le premier build compile Snort depuis les sources (une dizaine de minutes) ; les suivants sont mis en cache.
 
-> Pour capturer le trafic réel de la machine hôte (Linux natif), voir le mode `network_mode: host` commenté dans `docker-compose.yml`.
+> **Capture réseau selon l'environnement.**
+> - Sur **Docker Desktop** (Windows / macOS), le conteneur tourne dans une VM : la capture *live* ne voit pas le trafic de l'hôte. Tout le reste fonctionne (interface, règles, **analyse PCAP**, ML, système, console) ; utilisez la page **Analyse PCAP** pour inspecter de vraies captures.
+> - Sur **Linux natif**, décommentez `network_mode: host` dans `docker-compose.yml` : Snort capture alors le vrai trafic de la machine.
+> - Pour de la capture live continue sur Windows, préférez l'installeur natif dans WSL (`install.sh`), où Snort capture l'interface `eth0` de WSL.
 
 ### Option 2 : Installeur natif (WSL / Linux)
 

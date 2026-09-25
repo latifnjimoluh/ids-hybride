@@ -6,7 +6,8 @@
 #     bash /mnt/d/Formation/Project/ids-hybride/scripts/setup-service-wsl.sh
 set -euo pipefail
 
-PROJ=/mnt/d/Formation/Project/ids-hybride
+# Racine du projet, détectée automatiquement (parent du dossier scripts/).
+PROJ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONF="$PROJ/config/snort.lua"
 LOGDIR="$PROJ/logs"
 

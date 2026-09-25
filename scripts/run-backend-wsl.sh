@@ -8,7 +8,9 @@
 #     bash /mnt/d/Formation/Project/ids-hybride/scripts/run-backend-wsl.sh
 set -euo pipefail
 
-PROJ="/mnt/d/Formation/Project/ids-hybride/backend"
+# Racine du projet, détectée automatiquement (parent du dossier scripts/).
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJ="$ROOT/backend"
 VENV="$HOME/.ids-hybride-venv"
 
 if [ ! -d "$VENV" ]; then
@@ -22,9 +24,9 @@ echo "==> Backend en mode linux (root) sur http://localhost:8000"
 echo "   (le frontend Vite reste sur Windows : http://localhost:5173)"
 cd "$PROJ"
 sudo SNORT_BACKEND=linux \
-     SNORT_CONFIG_PATH=/mnt/d/Formation/Project/ids-hybride/config/snort.lua \
-     SNORT_RULES_PATH=/mnt/d/Formation/Project/ids-hybride/config/local.rules \
-     SNORT_ALERT_JSON_PATH=/mnt/d/Formation/Project/ids-hybride/logs/alert_json.txt \
+     SNORT_CONFIG_PATH="$ROOT/config/snort.lua" \
+     SNORT_RULES_PATH="$ROOT/config/local.rules" \
+     SNORT_ALERT_JSON_PATH="$ROOT/logs/alert_json.txt" \
      SNORT_SERVICE_NAME=snort3 \
      SNORT_INTERFACE=eth0 \
      "$VENV/bin/uvicorn" app.main:app --host 0.0.0.0 --port 8000

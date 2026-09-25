@@ -104,10 +104,44 @@ En développement, Vite proxifie `/api` vers le backend. En appliance, tout est 
 
 ---
 
-## Portabilité (déploiement ailleurs)
+## Installation sur un PC vierge (comme on installe Suricata)
 
-Les scripts de service utilisent le chemin actuel du projet. Pour déployer sur une autre machine ou un autre emplacement :
+Les scripts détectent automatiquement l'emplacement du projet : on peut donc cloner où l'on veut et lancer une seule commande.
 
-- Adapter le chemin `PROJ` dans `scripts/setup-service-wsl.sh` et `scripts/setup-dashboard-service-wsl.sh` (ou cloner le projet au même emplacement).
-- Sur une vraie sonde (hors WSL), choisir l'interface de capture (`SNORT_INTERFACE`) et restreindre `HOME_NET` dans `config/snort.lua`.
-- Pour une distribution plus poussée, les prochaines étapes possibles sont une image Docker ou un paquet `.deb` (voir pistes en fin de README).
+### Cas A : PC Windows vierge (via WSL)
+
+```powershell
+# 1. PowerShell administrateur : installer WSL2 + Ubuntu, puis redémarrer
+wsl --install
+```
+(La virtualisation doit être active dans le BIOS ; l'hyperviseur Windows est activé par `wsl --install`.)
+
+```bash
+# 2. Dans Ubuntu (WSL), prérequis + clone + installation
+sudo apt update && sudo apt install -y git python3 python3-venv
+git clone https://github.com/latifnjimoluh/ids-hybride.git
+cd ids-hybride
+bash install.sh
+```
+
+### Cas B : PC Linux vierge (Ubuntu / Debian)
+
+```bash
+sudo apt update && sudo apt install -y git python3 python3-venv
+git clone https://github.com/latifnjimoluh/ids-hybride.git
+cd ids-hybride
+bash install.sh
+```
+
+Dans les deux cas, à la fin : **http://localhost:8000** (admin / admin), Snort et le dashboard démarrés et activés au boot.
+
+### À savoir
+
+- **Dépôt privé** : le clone demande une authentification GitHub (`gh auth login`, un token, ou une clé SSH). Le rendre public simplifie l'installation.
+- **Durée** : `install.sh` compile Snort 3 depuis les sources (10 à 20 min). C'est une commande unique, mais plus long qu'un `apt install suricata` (Snort 3 n'est pas packagé).
+- **Sudo** : sur une machine sans NOPASSWD, `install.sh` demande le mot de passe (lancement interactif dans un terminal).
+- **Vraie sonde** (hors WSL) : ajuster l'interface de capture (`SNORT_INTERFACE`, `eth0` par défaut) dans `scripts/setup-service-wsl.sh` et restreindre `HOME_NET` dans `config/snort.lua`.
+
+## Distribution encore plus simple (pistes)
+
+Pour se rapprocher davantage du `apt install` de Suricata, les étapes suivantes possibles sont une **image Docker** (`docker compose up`) ou un **paquet `.deb`** (`apt install ./ids-hybride.deb`) avec les services systemd inclus.

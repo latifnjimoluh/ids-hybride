@@ -12,6 +12,7 @@
 | [guide-02-regles-snort3.md](./guide-02-regles-snort3.md) | **Écriture de règles Snort 3** : anatomie, header, content, modificateurs, sticky buffers, PCRE, flowbits, detection_filter, exemples complets, tests. |
 | [guide-03-integration-wazuh-elk.md](./guide-03-integration-wazuh-elk.md) | **Intégration Snort → Wazuh & ELK** : sortie JSON, agent Wazuh, décodeurs, Filebeat/Logstash, dashboards, corrélation hybride. |
 | [guide-04-dashboard.md](./guide-04-dashboard.md) | **Dashboard web (FastAPI + React)** pour piloter Snort : règles, alertes, service, config. Architecture, démarrage, API. |
+| [guide-05-passage-en-reel-wsl.md](./guide-05-passage-en-reel-wsl.md) | **Passage en mode réel** : installer Snort 3 dans WSL et brancher le backend en mode `linux`. Scripts dans `scripts/`. |
 
 ## 🖥️ Dashboard
 

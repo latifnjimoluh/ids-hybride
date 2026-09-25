@@ -16,7 +16,8 @@ RUN npm run build          # -> /app/frontend/dist
 FROM ubuntu:24.04 AS snort
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential git wget ca-certificates cmake pkg-config autotools-dev \
+    build-essential git wget ca-certificates cmake pkg-config \
+    autoconf automake libtool autotools-dev \
     libpcap-dev libpcre2-dev libpcre3-dev libnet1-dev zlib1g-dev luajit hwloc \
     libdumbnet-dev bison flex liblzma-dev openssl libssl-dev libhwloc-dev \
     libsqlite3-dev uuid-dev libcmocka-dev libnetfilter-queue-dev libmnl-dev \

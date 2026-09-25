@@ -1,0 +1,32 @@
+# IDS-Hybride : lancement de l'appliance en conteneur.
+#   docker compose up -d --build
+# Puis ouvrir http://localhost:8000  (admin / admin)
+services:
+  ids-hybride:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: ids-hybride:latest
+    container_name: ids-hybride
+    restart: unless-stopped
+    # Capacités nécessaires à la capture réseau par Snort
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    ports:
+      - "8000:8000"
+    environment:
+      - SNORT_INTERFACE=eth0
+      # ⚠️ À changer en production :
+      - SNORT_SECRET_KEY=change-me-in-production
+      - SNORT_ADMIN_PASSWORD=admin
+    volumes:
+      - ids_logs:/opt/ids-hybride/logs
+
+    # --- Capturer le trafic de l'hôte (Linux natif uniquement) ---
+    # Remplacer le bloc "ports" ci-dessus par le mode host pour que Snort
+    # voie le vrai trafic de la machine (ne fonctionne pas sur Docker Desktop) :
+    #   network_mode: host
+
+volumes:
+  ids_logs:

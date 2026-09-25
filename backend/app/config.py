@@ -30,7 +30,9 @@ class Settings(BaseSettings):
     config_path: str = "/usr/local/etc/snort/snort.lua"
     rules_path: str = "/usr/local/etc/snort/rules/local.rules"
     alert_json_path: str = "/var/log/snort/alert_json.txt"
-    service_name: str = "snort3"  # nom du service systemd
+    service_name: str = "snort3"  # nom du service (systemd) ou programme (supervisor)
+    # Gestionnaire de service : "systemd" (WSL/VM) ou "supervisor" (Docker)
+    service_manager: str = "systemd"
     interface: str = "eth0"
 
     # --- CORS : origines autorisées pour le frontend React ---

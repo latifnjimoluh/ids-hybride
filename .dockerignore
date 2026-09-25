@@ -1,0 +1,10 @@
+# Contexte de build : exclure ce qui est volumineux ou régénéré dans l'image
+.git
+backend/.venv
+frontend/node_modules
+frontend/dist
+backend/app/data
+logs
+**/__pycache__
+*.pyc
+*.log

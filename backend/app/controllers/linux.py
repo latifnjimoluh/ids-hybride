@@ -241,7 +241,11 @@ class LinuxSnortController(SnortController):
     # Service (systemctl)
     # ------------------------------------------------------------------ #
     def service_status(self) -> ServiceStatus:
-        running = self._systemctl("is-active").strip() == "active"
+        if settings.service_manager == "supervisor":
+            out = self._supervisorctl("status")
+            running = "RUNNING" in out
+        else:
+            running = self._systemctl("is-active").strip() == "active"
         version = ""
         try:
             v = subprocess.run([settings.snort_binary, "-V"], capture_output=True, text=True, timeout=10)
@@ -261,7 +265,10 @@ class LinuxSnortController(SnortController):
             # leur application effective se fait via le fichier de service systemd
             # ou une surcharge (drop-in), à brancher selon le déploiement.
             self._run_opts = {k: v for k, v in options.items() if v}
-        self._systemctl(action)
+        if settings.service_manager == "supervisor":
+            self._supervisorctl(action)
+        else:
+            self._systemctl(action)
         return self.service_status()
 
     @staticmethod
@@ -269,6 +276,19 @@ class LinuxSnortController(SnortController):
         try:
             proc = subprocess.run(
                 ["systemctl", cmd, settings.service_name],
+                capture_output=True, text=True, timeout=30,
+            )
+            return proc.stdout or proc.stderr
+        except (subprocess.SubprocessError, FileNotFoundError) as exc:
+            return f"error: {exc}"
+
+    @staticmethod
+    def _supervisorctl(cmd: str) -> str:
+        # cmd : is-active|start|stop|restart|status ; mappé sur supervisorctl
+        verb = "status" if cmd in ("is-active", "status") else cmd
+        try:
+            proc = subprocess.run(
+                ["supervisorctl", verb, settings.service_name],
                 capture_output=True, text=True, timeout=30,
             )
             return proc.stdout or proc.stderr
@@ -451,6 +471,13 @@ class LinuxSnortController(SnortController):
     # Logs & console
     # ------------------------------------------------------------------ #
     def tail_logs(self, lines: int = 200) -> LogsResponse:
+        # En conteneur (supervisor) : lire le fichier de log de Snort
+        if settings.service_manager == "supervisor":
+            logfile = self._alerts.parent / "snort3.log"
+            if logfile.exists():
+                content = logfile.read_text(encoding="utf-8", errors="ignore").splitlines()
+                return LogsResponse(lines=content[-lines:], source=str(logfile))
+            return LogsResponse(lines=["Aucun log disponible."], source=str(logfile))
         # Journal systemd du service
         try:
             proc = subprocess.run(

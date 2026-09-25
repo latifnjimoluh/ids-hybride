@@ -10,12 +10,17 @@ set -euo pipefail
 echo "==> 1/7  Dépendances de build"
 sudo apt-get update
 sudo apt-get install -y \
-  build-essential libpcap-dev libpcre3-dev libnet1-dev zlib1g-dev \
-  luajit hwloc libdnet-dev libdumbnet-dev bison flex liblzma-dev \
+  build-essential libpcap-dev libpcre2-dev libpcre3-dev libnet1-dev zlib1g-dev \
+  luajit hwloc libdumbnet-dev bison flex liblzma-dev \
   openssl libssl-dev pkg-config libhwloc-dev cmake cpputest \
   libsqlite3-dev uuid-dev libcmocka-dev libnetfilter-queue-dev \
   libmnl-dev autotools-dev libluajit-5.1-dev libunwind-dev libfl-dev \
-  git wget
+  git wget python3-venv python3-pip
+
+# Ubuntu fournit le header sous dumbnet.h ; certains builds cherchent dnet.h
+if [ -f /usr/include/dumbnet.h ] && [ ! -e /usr/include/dnet.h ]; then
+  sudo ln -s /usr/include/dumbnet.h /usr/include/dnet.h
+fi
 
 SRC="$HOME/snort_src"
 mkdir -p "$SRC"

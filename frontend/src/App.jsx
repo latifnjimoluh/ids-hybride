@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
 import { auth } from "./auth.js";
+import { AlertsProvider, useAlerts } from "./AlertsContext.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Rules from "./pages/Rules.jsx";
 import Alerts from "./pages/Alerts.jsx";
@@ -24,11 +25,35 @@ const NAV = [
   { to: "/console", label: "Console", icon: "❯" },
 ];
 
-export default function App() {
-  const [authed, setAuthed] = useState(auth.isAuthenticated());
+function NotifBell() {
+  const { notifEnabled, setNotifEnabled, permission, supported, connected } = useAlerts();
+  const denied = permission === "denied";
+  return (
+    <div style={{ padding: "8px 12px", fontSize: 12 }}>
+      <div className="row" style={{ marginBottom: 6 }}>
+        <span className={`dot ${connected ? "on" : "off"}`} />
+        <span className="muted">{connected ? "Temps réel actif" : "Hors ligne"}</span>
+      </div>
+      <button
+        className={notifEnabled ? "success sm" : "sm"}
+        style={{ width: "100%" }}
+        disabled={!supported || denied}
+        onClick={() => setNotifEnabled(!notifEnabled)}
+        title={denied ? "Autorisation refusée dans le navigateur" : "Notifications navigateur"}
+      >
+        {!supported
+          ? "🔕 Non supporté"
+          : denied
+          ? "🔕 Bloquées (navigateur)"
+          : notifEnabled
+          ? "🔔 Notifications ON"
+          : "🔕 Notifications OFF"}
+      </button>
+    </div>
+  );
+}
 
-  if (!authed) return <Login onLogin={() => setAuthed(true)} />;
-
+function Layout() {
   return (
     <div className="layout">
       <aside className="sidebar">
@@ -47,7 +72,8 @@ export default function App() {
             {n.label}
           </NavLink>
         ))}
-        <div className="spacer" style={{ flex: 1 }} />
+        <div style={{ flex: 1 }} />
+        <NotifBell />
         <div className="nav-item" style={{ cursor: "default", fontSize: 12 }}>
           👤 {auth.username}
         </div>
@@ -69,5 +95,15 @@ export default function App() {
         </Routes>
       </main>
     </div>
+  );
+}
+
+export default function App() {
+  const [authed, setAuthed] = useState(auth.isAuthenticated());
+  if (!authed) return <Login onLogin={() => setAuthed(true)} />;
+  return (
+    <AlertsProvider>
+      <Layout />
+    </AlertsProvider>
   );
 }

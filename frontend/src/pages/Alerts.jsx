@@ -1,43 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { api, alertsWsUrl } from "../api.js";
+import { useEffect, useMemo, useState } from "react";
+import { useAlerts } from "../AlertsContext.jsx";
 
 const PRIO_LABEL = { 1: "Haute", 2: "Moyenne", 3: "Basse" };
+const PER_PAGE = 15;
 
 export default function Alerts() {
-  const [alerts, setAlerts] = useState([]);
+  const { alerts, connected, notifEnabled, setNotifEnabled, permission, supported, reload } = useAlerts();
   const [prio, setPrio] = useState("all");
   const [search, setSearch] = useState("");
-  const [live, setLive] = useState(true);
-  const [connected, setConnected] = useState(false);
-  const wsRef = useRef(null);
-
-  // Chargement initial de l'historique
-  useEffect(() => {
-    api.listAlerts(200).then(setAlerts).catch(() => {});
-  }, []);
-
-  // Flux temps réel via WebSocket
-  useEffect(() => {
-    if (!live) {
-      wsRef.current?.close();
-      return;
-    }
-    const ws = new WebSocket(alertsWsUrl());
-    wsRef.current = ws;
-    ws.onopen = () => setConnected(true);
-    ws.onclose = () => setConnected(false);
-    ws.onmessage = (ev) => {
-      try {
-        const alert = JSON.parse(ev.data);
-        setAlerts((prev) => [alert, ...prev].slice(0, 500));
-      } catch {
-        /* ignore */
-      }
-    };
-    return () => ws.close();
-  }, [live]);
-
-  const load = () => api.listAlerts(200).then(setAlerts).catch(() => {});
+  const [page, setPage] = useState(1);
 
   const filtered = useMemo(
     () =>
@@ -52,12 +23,23 @@ export default function Alerts() {
     [alerts, prio, search]
   );
 
+  // Revenir à la page 1 quand les filtres changent
+  useEffect(() => { setPage(1); }, [prio, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+  const start = (currentPage - 1) * PER_PAGE;
+  const pageItems = filtered.slice(start, start + PER_PAGE);
+
   const fmt = (ts) => new Date(ts).toLocaleString("fr-FR");
+  const denied = permission === "denied";
 
   return (
     <div>
       <h1 className="page-title">Alertes</h1>
-      <p className="page-sub">Flux des détections Snort (source : alert_json). {filtered.length} affichée(s).</p>
+      <p className="page-sub">
+        Flux temps réel des détections Snort. {filtered.length} alerte(s) — page {currentPage}/{totalPages}.
+      </p>
 
       <div className="toolbar">
         <input
@@ -77,16 +59,15 @@ export default function Alerts() {
           <span className={`dot ${connected ? "on" : "off"}`} />
           {connected ? "Temps réel actif" : "Hors ligne"}
         </span>
-        <label style={{ margin: 0 }}>
-          <input
-            type="checkbox"
-            checked={live}
-            onChange={(e) => setLive(e.target.checked)}
-            style={{ width: "auto", marginRight: 6 }}
-          />
-          Flux live (WebSocket)
-        </label>
-        <button onClick={load}>Recharger l'historique</button>
+        <button
+          className={notifEnabled ? "success" : ""}
+          disabled={!supported || denied}
+          onClick={() => setNotifEnabled(!notifEnabled)}
+          title={denied ? "Autorisation refusée dans le navigateur" : "Notifications navigateur"}
+        >
+          {notifEnabled ? "🔔 Notifications ON" : "🔕 Notifications"}
+        </button>
+        <button onClick={reload}>Recharger</button>
       </div>
 
       <div className="table-wrap">
@@ -103,8 +84,8 @@ export default function Alerts() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((a, i) => (
-              <tr key={i}>
+            {pageItems.map((a, i) => (
+              <tr key={start + i}>
                 <td className="mono">{fmt(a.timestamp)}</td>
                 <td><span className={`badge prio-${a.priority}`}>{PRIO_LABEL[a.priority] || a.priority}</span></td>
                 <td>{a.msg}</td>
@@ -114,13 +95,21 @@ export default function Alerts() {
                 <td className="mono">{a.sid ?? "—"}</td>
               </tr>
             ))}
-            {filtered.length === 0 && (
+            {pageItems.length === 0 && (
               <tr><td colSpan="7" className="muted" style={{ textAlign: "center", padding: 30 }}>
                 Aucune alerte.
               </td></tr>
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="toolbar" style={{ marginTop: 14, justifyContent: "center" }}>
+        <button className="sm" disabled={currentPage <= 1} onClick={() => setPage(1)}>« Début</button>
+        <button className="sm" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>‹ Précédent</button>
+        <span className="mono" style={{ fontSize: 13 }}>{currentPage} / {totalPages}</span>
+        <button className="sm" disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)}>Suivant ›</button>
+        <button className="sm" disabled={currentPage >= totalPages} onClick={() => setPage(totalPages)}>Fin »</button>
       </div>
     </div>
   );

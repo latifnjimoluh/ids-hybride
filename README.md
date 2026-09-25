@@ -13,6 +13,17 @@
 | [guide-03-integration-wazuh-elk.md](./guide-03-integration-wazuh-elk.md) | **Intégration Snort → Wazuh & ELK** : sortie JSON, agent Wazuh, décodeurs, Filebeat/Logstash, dashboards, corrélation hybride. |
 | [guide-04-dashboard.md](./guide-04-dashboard.md) | **Dashboard web (FastAPI + React)** pour piloter Snort : règles, alertes, service, config. Architecture, démarrage, API. |
 | [guide-05-passage-en-reel-wsl.md](./guide-05-passage-en-reel-wsl.md) | **Passage en mode réel** : installer Snort 3 dans WSL et brancher le backend en mode `linux`. Scripts dans `scripts/`. |
+| [guide-06-packaging-appliance.md](./guide-06-packaging-appliance.md) | **Package « appliance »** : `install.sh` tout-en-un, le backend sert l'UI, services systemd, interface sur une seule URL. |
+
+## 📦 Installation en un script (mode appliance)
+
+Dans WSL / Linux, depuis la racine du projet :
+
+```bash
+bash install.sh
+```
+
+Installe Snort 3, build le frontend, déploie le backend et crée les services systemd (`snort3` + `ids-dashboard`). À la fin, l'interface est disponible sur **http://localhost:8000** (admin / admin) et démarre automatiquement au boot. Le backend sert lui-même l'UI : une seule URL pour l'API et l'interface. Détails dans [guide-06-packaging-appliance.md](./guide-06-packaging-appliance.md).
 
 ## 🖥️ Dashboard
 

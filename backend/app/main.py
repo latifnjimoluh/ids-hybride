@@ -22,6 +22,7 @@ from .routers import (
     config,
     console,
     logs,
+    ml,
     pcap,
     rules,
     service,
@@ -57,6 +58,7 @@ app.include_router(system.router, dependencies=[_protected])
 app.include_router(pcap.router, dependencies=[_protected])
 app.include_router(logs.router, dependencies=[_protected])
 app.include_router(console.router, dependencies=[_protected])
+app.include_router(ml.router, dependencies=[_protected])
 
 
 @app.get("/api/health", tags=["meta"])

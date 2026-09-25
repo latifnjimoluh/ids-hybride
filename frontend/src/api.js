@@ -98,6 +98,11 @@ export const api = {
   consoleRun: (command) =>
     request("/console/run", { method: "POST", body: JSON.stringify({ command }) }),
   consoleCommands: () => request("/console/commands"),
+
+  // ML / Anomalies
+  mlStatus: () => request("/ml/status"),
+  mlTrain: () => request("/ml/train", { method: "POST" }),
+  mlAnomalies: (limit = 300) => request(`/ml/anomalies?limit=${limit}`),
 };
 
 // URL du WebSocket d'alertes (token en query param).

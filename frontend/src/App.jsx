@@ -11,12 +11,14 @@ import System from "./pages/System.jsx";
 import Pcap from "./pages/Pcap.jsx";
 import Logs from "./pages/Logs.jsx";
 import Console from "./pages/Console.jsx";
+import ML from "./pages/ML.jsx";
 import Login from "./pages/Login.jsx";
 
 const NAV = [
   { to: "/", label: "Tableau de bord", icon: "▦", end: true },
   { to: "/rules", label: "Règles", icon: "❭_" },
   { to: "/alerts", label: "Alertes", icon: "⚠" },
+  { to: "/ml", label: "ML / Anomalies", icon: "🧠" },
   { to: "/pcap", label: "Analyse PCAP", icon: "⇪" },
   { to: "/service", label: "Service", icon: "⚙" },
   { to: "/config", label: "Configuration", icon: "☰" },
@@ -86,6 +88,7 @@ function Layout() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/rules" element={<Rules />} />
           <Route path="/alerts" element={<Alerts />} />
+          <Route path="/ml" element={<ML />} />
           <Route path="/pcap" element={<Pcap />} />
           <Route path="/service" element={<Service />} />
           <Route path="/config" element={<Config />} />

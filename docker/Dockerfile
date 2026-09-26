@@ -38,7 +38,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-venv python3-pip supervisor iproute2 ca-certificates \
     libpcap0.8 libpcre2-8-0 libpcre3 libdumbnet1 luajit libluajit-5.1-2 libhwloc15 \
-    libnetfilter-queue1 libmnl0 libunwind8 zlib1g libssl3t64 libgoogle-perftools4t64 \
+    libnuma1 libnetfilter-queue1 libmnl0 libunwind8 zlib1g libssl3t64 libgoogle-perftools4t64 \
  && rm -rf /var/lib/apt/lists/*
 
 # Snort compilé

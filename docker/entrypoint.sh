@@ -4,6 +4,7 @@
 set -e
 
 mkdir -p /opt/ids-hybride/logs
+touch /opt/ids-hybride/logs/alert_json.txt
 
 # Repli si l'interface configurée n'existe pas dans le conteneur.
 if ! ip link show "${SNORT_INTERFACE:-eth0}" >/dev/null 2>&1; then

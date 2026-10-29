@@ -8,3 +8,6 @@ logs
 **/__pycache__
 *.pyc
 *.log
+.agents
+.pytest_cache
+run_adversarial_tests.py

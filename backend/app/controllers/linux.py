@@ -22,6 +22,7 @@ import uuid
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from ..config import settings
 from ..models import (
@@ -53,6 +54,65 @@ _CONSOLE_ALLOWED = {
     "--show-plugins", "--list-gids", "--list-builtin", "--help", "--help-config",
     "-?", "-h", "--help-module", "-T", "-c", "--list-buffers", "--list-modules",
 }
+
+_SNORT_TS_RE = re.compile(r"^(\d{1,2})/(\d{1,2})-(\d{1,2}):(\d{1,2}):(\d{1,2})(?:\.(\d+))?$")
+
+
+def _parse_timestamp(val: Any) -> datetime | None:
+    """Parse un horodatage Snort 3 (MM/dd-HH:mm:ss[.uuuuuu]), Unix epoch ou ISO 8601."""
+    if val is None or isinstance(val, bool):
+        return None
+    if isinstance(val, datetime):
+        return val.replace(tzinfo=None)
+    if isinstance(val, (int, float)):
+        try:
+            return datetime.fromtimestamp(float(val))
+        except (ValueError, OSError, OverflowError):
+            return None
+    if isinstance(val, str):
+        val = val.strip()
+        if not val:
+            return None
+        # Format Snort 3 : MM/dd-HH:mm:ss[.uuuuuu]
+        m = _SNORT_TS_RE.match(val)
+        if m:
+            mo, d, h, mi, s = map(int, m.groups()[:5])
+            frac = m.group(6)
+            us = int(frac.ljust(6, "0")[:6]) if frac else 0
+            current_year = datetime.now().year
+            try:
+                return datetime(current_year, mo, d, h, mi, s, us)
+            except ValueError:
+                if mo == 2 and d == 29:
+                    leap_year = current_year - (current_year % 4)
+                    if (leap_year % 100 == 0) and (leap_year % 400 != 0):
+                        leap_year -= 4
+                    try:
+                        return datetime(leap_year, mo, d, h, mi, s, us)
+                    except ValueError:
+                        return None
+                return None
+        # Timestamp Unix numérique sous forme de chaîne ("1695645167" ou "1695645167.047605")
+        try:
+            return datetime.fromtimestamp(float(val))
+        except (ValueError, OSError, OverflowError):
+            pass
+        # Format ISO 8601 (complément de robustesse)
+        try:
+            dt = datetime.fromisoformat(val)
+            return dt.replace(tzinfo=None)
+        except ValueError:
+            pass
+    return None
+
+
+def _parse_priority(val: Any) -> int:
+    if val is None or val == "":
+        return 3
+    try:
+        return int(val)
+    except (ValueError, TypeError, OverflowError):
+        return 3
 
 
 class LinuxSnortController(SnortController):
@@ -158,39 +218,92 @@ class LinuxSnortController(SnortController):
     # Alertes
     # ------------------------------------------------------------------ #
     def list_alerts(self, limit: int = 200) -> list[Alert]:
-        if not self._alerts.exists():
+        """Extrait les `limit` dernières alertes via une lecture inversée par bloc."""
+        if limit <= 0 or not self._alerts.exists():
             return []
+
         alerts: list[Alert] = []
-        # On lit la fin du fichier (les alertes les plus récentes)
-        lines = self._alerts.read_text(encoding="utf-8", errors="ignore").splitlines()
-        for line in reversed(lines):
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                data = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            alerts.append(self._to_alert(data))
-            if len(alerts) >= limit:
-                break
+        block_size = 65536  # 64 Ko par bloc
+
+        try:
+            with self._alerts.open("rb") as fh:
+                fh.seek(0, 2)  # os.SEEK_END
+                position = fh.tell()
+                if position == 0:
+                    return []
+
+                remainder = b""
+                while position > 0 and len(alerts) < limit:
+                    chunk_size = min(block_size, position)
+                    position -= chunk_size
+                    fh.seek(position)
+                    chunk = fh.read(chunk_size)
+                    buffer = chunk + remainder
+                    lines = buffer.split(b"\n")
+                    remainder = lines[0]
+
+                    # Traitement des lignes complètes du bas vers le haut
+                    for raw_line in reversed(lines[1:]):
+                        line = raw_line.strip()
+                        if not line:
+                            continue
+                        try:
+                            data = json.loads(line.decode("utf-8", errors="ignore"))
+                        except (json.JSONDecodeError, UnicodeDecodeError):
+                            continue
+                        if not isinstance(data, dict):
+                            continue
+                        try:
+                            alerts.append(self._to_alert(data))
+                        except Exception:
+                            continue
+                        if len(alerts) >= limit:
+                            break
+
+                # Traiter le reliquat si on a atteint le début du fichier et qu'il reste de la place
+                if position == 0 and len(alerts) < limit:
+                    line = remainder.strip()
+                    if line:
+                        try:
+                            data = json.loads(line.decode("utf-8", errors="ignore"))
+                        except (json.JSONDecodeError, UnicodeDecodeError):
+                            data = None
+                        if isinstance(data, dict):
+                            try:
+                                alerts.append(self._to_alert(data))
+                            except Exception:
+                                pass
+        except OSError:
+            return []
+
         return alerts
 
     @staticmethod
     def _to_alert(d: dict) -> Alert:
-        # Snort peut émettre "seconds" (epoch) ou "timestamp" (MM/dd-HH:mm:ss...)
-        ts = datetime.now()
-        if "seconds" in d:
-            try:
-                ts = datetime.fromtimestamp(float(d["seconds"]))
-            except (ValueError, OSError):
-                pass
+        if not isinstance(d, dict):
+            return Alert(timestamp=datetime.now())
+
+        # Priorité de parsing : "timestamp" (Snort 3) puis "seconds" (Unix epoch)
+        ts = None
+        if "timestamp" in d:
+            ts = _parse_timestamp(d["timestamp"])
+        if ts is None and "seconds" in d:
+            ts = _parse_timestamp(d["seconds"])
+        if ts is None:
+            ts = datetime.now()
+
         return Alert(
-            timestamp=ts, msg=d.get("msg", ""), priority=int(d.get("priority", 3) or 3),
-            proto=d.get("proto", ""), src_addr=d.get("src_addr", ""),
-            src_port=_int_or_none(d.get("src_port")), dst_addr=d.get("dst_addr", ""),
-            dst_port=_int_or_none(d.get("dst_port")), sid=_int_or_none(d.get("sid")),
-            classtype=d.get("class", ""), action=d.get("action", ""),
+            timestamp=ts,
+            msg=d.get("msg") or "",
+            priority=_parse_priority(d.get("priority")),
+            proto=d.get("proto") or "",
+            src_addr=d.get("src_addr") or "",
+            src_port=_int_or_none(d.get("src_port")),
+            dst_addr=d.get("dst_addr") or "",
+            dst_port=_int_or_none(d.get("dst_port")),
+            sid=_int_or_none(d.get("sid")),
+            classtype=d.get("class") or "",
+            action=d.get("action") or "",
         )
 
     def new_alerts(self) -> list[Alert]:
@@ -211,8 +324,14 @@ class LinuxSnortController(SnortController):
                 if not line:
                     continue
                 try:
-                    out.append(self._to_alert(json.loads(line)))
+                    data = json.loads(line)
                 except json.JSONDecodeError:
+                    continue
+                if not isinstance(data, dict):
+                    continue
+                try:
+                    out.append(self._to_alert(data))
+                except Exception:
                     continue
             self._alert_offset = fh.tell()
         return out
@@ -525,5 +644,5 @@ class LinuxSnortController(SnortController):
 def _int_or_none(v) -> int | None:
     try:
         return int(v)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None

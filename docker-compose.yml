@@ -3,10 +3,10 @@
 # Puis ouvrir http://localhost:8000  (admin / admin)
 services:
   ids-hybride:
+    image: ghcr.io/latifnjimoluh/ids-hybride:latest
     build:
       context: .
       dockerfile: docker/Dockerfile
-    image: ids-hybride:latest
     container_name: ids-hybride
     restart: unless-stopped
     # Capacités nécessaires à la capture réseau par Snort

@@ -16,3 +16,6 @@ logs/
 # Divers
 .DS_Store
 *.log
+.agents/
+.pytest_cache/
+.coverage

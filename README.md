@@ -66,18 +66,30 @@ Le backend possède deux implémentations interchangeables via `SNORT_BACKEND` :
 
 ## Démarrage rapide
 
-### Option 1 : Docker (le plus simple)
+### Option 1 : Docker / Appliance clé en main (le plus simple & instantané)
 
 Prérequis : Docker.
 
+**En une seule commande (image pré-compilée prête à l'emploi) :**
+```bash
+docker run -d \
+  --name ids-hybride \
+  --restart unless-stopped \
+  -p 8000:8000 \
+  --cap-add NET_ADMIN \
+  --cap-add NET_RAW \
+  ghcr.io/latifnjimoluh/ids-hybride:latest
+```
+
+**Ou via Docker Compose :**
 ```bash
 git clone https://github.com/latifnjimoluh/ids-hybride.git
 cd ids-hybride
-docker compose up -d --build
+docker compose up -d
 ```
 
-L'interface est sur **http://localhost:8000** (identifiants par défaut : `admin` / `admin`).
-Le premier build compile Snort depuis les sources (une dizaine de minutes) ; les suivants sont mis en cache.
+L'interface est immédiatement accessible sur **http://localhost:8000** (identifiants par défaut : `admin` / `admin`).
+L'image inclut Snort 3, libDAQ, le moteur Machine Learning, le backend FastAPI et l'interface React déjà intégrée. Aucune étape de compilation locale n'est requise.
 
 > **Capture réseau selon l'environnement.**
 > - Sur **Docker Desktop** (Windows / macOS), le conteneur tourne dans une VM : la capture *live* ne voit pas le trafic de l'hôte. Tout le reste fonctionne (interface, règles, **analyse PCAP**, ML, système, console) ; utilisez la page **Analyse PCAP** pour inspecter de vraies captures.

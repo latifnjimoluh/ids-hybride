@@ -1,76 +1,85 @@
-# IDS-Hybride
+# 🛡️ IDS-Hybride — NIDS & Dashboard Web Tout-en-Un
 
-Un système de détection d'intrusion **hybride**, livré avec son **interface web** : la détection par **signatures** (Snort 3) est complétée par une détection d'**anomalies** par machine learning, le tout piloté depuis un dashboard unique.
+[![Backend CI](https://github.com/latifnjimoluh/ids-hybride/actions/workflows/test.yml/badge.svg)](https://github.com/latifnjimoluh/ids-hybride/actions/workflows/test.yml)
+[![Publish Docker Image](https://github.com/latifnjimoluh/ids-hybride/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/latifnjimoluh/ids-hybride/actions/workflows/docker-publish.yml)
+[![Python Version](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://www.python.org/)
+[![Snort 3](https://img.shields.io/badge/engine-Snort%203-red.svg)](https://www.snort.org/)
+[![Docker Image](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://github.com/latifnjimoluh/ids-hybride/pkgs/container/ids-hybride)
 
-L'idée : les signatures attrapent les menaces **connues**, le module ML fait ressortir l'**inconnu** (ce qui s'écarte du trafic habituel). Une fois installé, tout démarre seul et l'interface est accessible sur une seule URL, à la manière des appliances livrées avec Suricata.
+Un système de détection d'intrusion réseau (**NIDS**) hybride livré sous forme d'**appliance web autonome** : la puissance de détection par **signatures de Snort 3** est complétée par un moteur de détection d'**anomalies par Machine Learning** (Isolation Forest), le tout administrable en temps réel depuis une interface web unifiée.
 
----
-
-## Sommaire
-
-- [Fonctionnalités](#fonctionnalités)
-- [Architecture](#architecture)
-- [Démarrage rapide](#démarrage-rapide)
-  - [Docker (le plus simple)](#option-1--docker-le-plus-simple)
-  - [Installeur natif (WSL / Linux)](#option-2--installeur-natif-wsl--linux)
-  - [Mode développement](#option-3--mode-développement)
-- [Le dashboard, page par page](#le-dashboard-page-par-page)
-- [Configuration](#configuration)
-- [Documentation](#documentation)
-- [Pile technique](#pile-technique)
-- [Avertissement](#avertissement)
+Inspiré de l'expérience clé en main des appliances Suricata (comme SELKS avec EveBox/Scirius), **IDS-Hybride** démarre automatiquement et sert directement son interface sur une URL unique (**`http://<IP>:8000`**), sans nécessiter de configuration complexe.
 
 ---
 
-## Fonctionnalités
+## 📑 Sommaire
 
-- **Moteur Snort 3** : capture réseau, règles, détection par signatures, sortie JSON.
-- **Dashboard web complet** : tout ce qu'on ferait en ligne de commande, depuis l'interface.
-  - Gestion des règles (création assistée ou brute, activation, import de rulesets, validation).
-  - Flux d'alertes en **temps réel** (WebSocket) avec **notifications navigateur** et pagination.
-  - **Analyse de captures PCAP** (upload puis exécution de Snort).
-  - Contrôle du service (start/stop/restart), options d'exécution.
-  - Édition de la configuration (`snort.lua`) et des variables réseau.
-  - Introspection **Système** (version, plugins, DAQ, interfaces) et **Console** Snort.
-  - Consultation des **logs**.
-- **Module ML / Anomalies** : Isolation Forest (scikit-learn) entraîné sur les événements Snort, avec score d'anomalie et visualisation.
-- **Authentification** JWT.
-- **Appliance** : le backend sert lui-même l'interface (une seule URL/port), services au démarrage.
+- [Aperçu de la Solution](#-aperçu-de-la-solution)
+- [Architecture & Fonctionnement](#-architecture--fonctionnement)
+- [Guides d'Installation Pas-à-Pas](#-guides-dinstallation-pas-à-pas)
+  - [Méthode 1 : Déploiement Express Docker (Recommandé - 10 secondes)](#méthode-1--déploiement-express-docker-recommandé---10-secondes)
+  - [Méthode 2 : Appliance Système Linux / Bare-metal / WSL 2 (`install.sh`)](#méthode-2--appliance-système-linux--bare-metal--wsl-2-installsh)
+  - [Méthode 3 : Mode Développement Local (Windows / Linux sans Snort)](#méthode-3--mode-développement-local)
+- [Guide de Prise en Main & Tests de Détection](#-guide-de-prise-en-main--tests-de-détection)
+- [Visite Guidée du Dashboard Web](#-visite-guidée-du-dashboard-web)
+- [Variables de Configuration](#-variables-de-configuration)
+- [Tests Automatisés & Validation QA](#-tests-automatisés--validation-qa)
+- [Guides & Documentation Détaillée](#-guides--documentation-détaillée)
+- [Sécurité & Production](#-sécurité--production)
 
 ---
 
-## Architecture
+## 🌟 Aperçu de la Solution
+
+| Détection Déterministe (Signatures) | Détection Comportementale (ML) | Pilotage Web & Appliance |
+| :--- | :--- | :--- |
+| **Moteur Snort 3** : capture multi-thread haute performance. | **Isolation Forest** (scikit-learn) entraîné sur les flux réseau. | **Interface React intégrée** directement servie par le backend FastAPI. |
+| **Règles Talos & Emerging Threats** : blocage des exploits connus, scans et malwares. | **Détection de l'inconnu** : signale les déviations statistiques sans signature préalable. | **Temps réel (WebSocket)** avec notifications push du navigateur. |
+| **Gestion dynamique** : ajout, modification, activation/désactivation et validation en 1 clic. | **Histogramme interactif** des scores d'anomalies et filtrage d'événements atypiques. | **Analyse PCAP forensique** par simple glisser-déposer de captures réseau. |
+
+---
+
+## 🏗️ Architecture & Fonctionnement
 
 ```
-   Trafic réseau
-        │
-        ▼
-   ┌──────────┐   alert_json      ┌───────────────────────────────┐
-   │ Snort 3  │──────────────────▶│  Backend FastAPI              │
-   │ (capture)│                   │   /api/*   API JSON           │
-   └──────────┘                   │   /api/ws  WebSocket (live)   │
-        ▲                         │   /*       UI React (buildée) │
-        │ systemctl / supervisor  │   /api/ml  Isolation Forest   │
-        └─────────────────────────│                               │
-                                  └───────────────┬───────────────┘
-                                                  │ http://localhost:8000
-                                                  ▼
-                                            Navigateur (dashboard)
+   Trafic Réseau (eth0 / enp3s0 / PCAP)
+                  │
+                  ▼
+         ┌──────────────────┐
+         │     Snort 3      │  (Capture live, décodage, réassemblage stream,
+         │  (NIDS Moteur)   │   évaluation des règles, inspection d'état)
+         └────────┬─────────┘
+                  │ alert_json.txt (JSON Lines)
+                  ▼
+         ┌──────────────────────────────────────────────────────────────┐
+         │                    Backend FastAPI                           │
+         │  • Contrôleur Linux : lecture inversée par bloc (file.seek)  │
+         │  • API REST sécurisée par JWT (/api/*)                       │
+         │  • Flux temps réel WebSocket (/api/ws/alerts)                │
+         │  • Module ML (/api/ml : StandardScaler + IsolationForest)     │
+         │  • Serveur Web SPA : héberge et sert l'UI React compilée     │
+         └──────────────────────────────┬───────────────────────────────┘
+                                        │ Port unique : http://<IP>:8000
+                                        ▼
+                 Navigateur Web de l'Administrateur (SOC / Dashboard)
 ```
 
-Le backend possède deux implémentations interchangeables via `SNORT_BACKEND` :
-- `mock` : tout est simulé (développement sous Windows, sans Snort).
-- `linux` : pilote un vrai Snort (systemd en WSL/VM, supervisor en conteneur).
+Le backend s'adapte automatiquement à son environnement via `SNORT_BACKEND` :
+* **`linux`** : Pilote une vraie sonde Snort 3 (services `systemd` sur Linux/WSL, ou `supervisor` en conteneur Docker).
+* **`mock`** : Simule Snort 3 de façon réaliste (idéal pour tester ou développer sous Windows sans machine Linux).
 
 ---
 
-## Démarrage rapide
+## 🚀 Guides d'Installation Pas-à-Pas
 
-### Option 1 : Docker / Appliance clé en main (le plus simple & instantané)
+### Méthode 1 : Déploiement Express Docker (Recommandé - 10 secondes)
 
-Prérequis : Docker.
+Cette méthode utilise l'image officielle pré-compilée hébergée sur **GitHub Container Registry (GHCR)**. Elle intègre Snort 3, libDAQ, Python, FastAPI, scikit-learn et l'interface React déjà assemblée.
 
-**En une seule commande (image pré-compilée prête à l'emploi) :**
+#### Prérequis :
+* Docker installé ([Installer Docker Engine ou Desktop](https://docs.docker.com/get-docker/)).
+
+#### Option A — Commande `docker run` en 1 ligne :
 ```bash
 docker run -d \
   --name ids-hybride \
@@ -81,145 +90,224 @@ docker run -d \
   ghcr.io/latifnjimoluh/ids-hybride:latest
 ```
 
-**Ou via Docker Compose :**
+#### Option B — Déploiement via Docker Compose :
 ```bash
 git clone https://github.com/latifnjimoluh/ids-hybride.git
 cd ids-hybride
 docker compose up -d
 ```
 
-L'interface est immédiatement accessible sur **http://localhost:8000** (identifiants par défaut : `admin` / `admin`).
-L'image inclut Snort 3, libDAQ, le moteur Machine Learning, le backend FastAPI et l'interface React déjà intégrée. Aucune étape de compilation locale n'est requise.
+#### 🌐 Accès immédiat :
+* Ouvrez votre navigateur sur **http://localhost:8000**
+* Identifiants par défaut :
+  * **Utilisateur :** `admin`
+  * **Mot de passe :** `admin`
 
-> **Capture réseau selon l'environnement.**
-> - Sur **Docker Desktop** (Windows / macOS), le conteneur tourne dans une VM : la capture *live* ne voit pas le trafic de l'hôte. Tout le reste fonctionne (interface, règles, **analyse PCAP**, ML, système, console) ; utilisez la page **Analyse PCAP** pour inspecter de vraies captures.
-> - Sur **Linux natif**, décommentez `network_mode: host` dans `docker-compose.yml` : Snort capture alors le vrai trafic de la machine.
-> - Pour de la capture live continue sur Windows, préférez l'installeur natif dans WSL (`install.sh`), où Snort capture automatiquement l'interface réseau active.
+> [!NOTE]
+> **Capture réseau en conteneur :**
+> - **Sur Linux natif** : Décommentez `network_mode: host` dans `docker-compose.yml` pour que Snort écoute directement la carte réseau de la machine hôte.
+> - **Sur Docker Desktop (Windows / macOS)** : Le conteneur s'exécute dans une VM isolée. Pour tester des détections réelles sous Windows, utilisez la page **Analyse PCAP** pour soumettre vos fichiers de capture, ou utilisez la Méthode 2 via WSL 2.
 
-### Option 2 : Installeur natif — Appliance autonome (WSL / Linux)
+---
 
-Pour installer une appliance prête à l'emploi directement sur une machine Linux (bare-metal, VM ou WSL 2 sous Windows) :
+### Méthode 2 : Appliance Système Linux / Bare-metal / WSL 2 (`install.sh`)
 
+Cette méthode configure une **appliance autonome native** sous `/opt/ids-hybride` sur n'importe quelle distribution **Ubuntu 22.04 / 24.04, Debian 12 ou WSL 2**. Les services démarrent automatiquement au boot de la machine.
+
+#### Prérequis :
+* Une machine Linux (Ubuntu, Debian, VM Proxmox/VMware) ou Windows avec **WSL 2** (`wsl --install`).
+* Droits administrateur (`sudo`).
+
+#### Déroulement de l'installation :
+
+1. **Cloner le projet :**
+   ```bash
+   git clone https://github.com/latifnjimoluh/ids-hybride.git
+   cd ids-hybride
+   ```
+
+2. **Lancer l'installeur automatique :**
+   ```bash
+   sudo bash install.sh
+   ```
+
+3. **Ce que fait le script automatiquement :**
+   - 🔍 **Détection réseau** : Détecte automatiquement l'interface réseau active par défaut (`ip route get 8.8.8.8`).
+   - 🛠️ **Installation de Snort 3** : Installe ou compile Snort 3 et `libdaq` s'ils sont absents.
+   - 📂 **Déploiement système** : Synchronise l'application vers `/opt/ids-hybride`.
+   - ⚛️ **Compilation Frontend** : Compile l'interface React vers `frontend/dist` (installe Node.js/npm si nécessaire).
+   - 🐍 **Environnement Python** : Crée le venv isolé `/opt/ids-hybride/backend/.venv` et installe les dépendances.
+   - ⚙️ **Services systemd** : Crée, active et démarre `snort3.service` et `ids-dashboard.service`.
+   - 📝 **Permissions et logs** : Initialise `/opt/ids-hybride/logs/alert_json.txt` avec les bons privilèges.
+   - 🖥️ **Bannière récapitulative** : Affiche l'adresse IP réseau détectée et le lien de connexion.
+
+#### Options personnalisées de l'installeur :
 ```bash
-git clone https://github.com/latifnjimoluh/ids-hybride.git
-cd ids-hybride
-sudo bash install.sh
+sudo bash install.sh [OPTIONS]
+
+Options :
+  -d, --dir <CHEMIN>        Dossier de destination (défaut : /opt/ids-hybride)
+  -i, --interface <IFACE>   Forcer une carte réseau (ex: ens33, eth0, enp3s0)
+  --rebuild-frontend        Forcer une recompilation complète de l'UI React
+  -h, --help                Afficher l'aide
 ```
 
-**Options avancées :**
+#### Commandes utiles de gestion :
 ```bash
-sudo bash install.sh [-d /opt/ids-hybride] [-i <interface>] [--rebuild-frontend]
-```
-- `-d, --dir <PATH>` : Chemin de déploiement (défaut : `/opt/ids-hybride`).
-- `-i, --interface <IFACE>` : Interface réseau pour la capture (défaut : auto-détection dynamique multi-niveaux).
-- `--rebuild-frontend` : Recompilation forcée du frontend React.
-
-Le script installe Snort 3, synchronise le projet vers le répertoire cible, build l'UI React vers `frontend/dist`, configure l'environnement virtuel Python (`venv`), initialise les fichiers de logs avec permissions sécurisées, puis crée et démarre les services systemd `snort3.service` et `ids-dashboard.service`.
-
-L'interface web est immédiatement disponible sur le réseau local : **http://&lt;IP&gt;:8000** et en local sur **http://localhost:8000** (identifiants par défaut : `admin` / `admin`).
-
-**Gestion des services systemd :**
-```bash
+# Vérifier l'état des services
 sudo systemctl status snort3 ids-dashboard
+
+# Redémarrer l'interface ou le moteur Snort
 sudo systemctl restart ids-dashboard
+sudo systemctl restart snort3
+
+# Consulter les journaux en direct
+journalctl -u snort3 -f
 journalctl -u ids-dashboard -f
 ```
 
-Sous Windows, activez WSL 2 (`wsl --install` en PowerShell admin), puis lancez les commandes dans Ubuntu. Détails complets dans [guide-06-packaging-appliance.md](./guide-06-packaging-appliance.md).
+---
 
-### Option 3 : Mode développement
+### Méthode 3 : Mode Développement Local
 
-Deux serveurs séparés, avec rechargement à chaud du frontend.
+Pour travailler sur le code, modifier les composants React ou l'API FastAPI sous Windows (sans Snort installé) :
 
 ```bash
-# Backend (mock sous Windows, ou linux dans WSL)
-cd backend && python -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/uvicorn app.main:app --reload --port 8000
-
-# Frontend (autre terminal)
-cd frontend && npm install && npm run dev      # http://localhost:5173
+# Script tout-en-un sous Windows PowerShell :
+.\start-dev.ps1
 ```
 
-Sous Windows, un script existe : `.\start-dev.ps1`.
+Ou manuellement dans deux terminaux :
+```bash
+# Terminal 1 — Backend (mode mock automatique sous Windows)
+cd backend
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
 
----
-
-## Le dashboard, page par page
-
-| Page | Rôle |
-|------|------|
-| **Tableau de bord** | Vue d'ensemble : état du service, alertes, règles actives, graphiques. |
-| **Règles** | Créer, éditer, (dés)activer, importer et valider les règles Snort. |
-| **Alertes** | Flux temps réel (WebSocket), filtres, pagination, notifications navigateur. |
-| **ML / Anomalies** | Entraînement Isolation Forest, scores d'anomalie, événements atypiques. |
-| **Analyse PCAP** | Upload d'une capture et exécution de Snort dessus. |
-| **Service** | Démarrer / arrêter / redémarrer Snort, options d'exécution. |
-| **Configuration** | Variables réseau et édition brute de `snort.lua`. |
-| **Système** | Version, plugins, modules DAQ, interfaces réseau. |
-| **Logs** | Journal du moteur. |
-| **Console** | Commandes d'introspection Snort (lecture seule). |
-
----
-
-## Configuration
-
-Variables d'environnement du backend (préfixe `SNORT_`) :
-
-| Variable | Défaut | Rôle |
-|----------|--------|------|
-| `SNORT_BACKEND` | `mock` | `mock` (simulé) ou `linux` (vrai Snort). |
-| `SNORT_SERVICE_MANAGER` | `systemd` | `systemd` (WSL/VM/Appliance) ou `supervisor` (conteneur). |
-| `SNORT_CONFIG_PATH` | `/opt/ids-hybride/config/snort.lua` | Fichier de config Snort (repli `/usr/local/etc/snort/snort.lua`). |
-| `SNORT_RULES_PATH` | `/opt/ids-hybride/config/local.rules` | Fichier de règles locales éditables. |
-| `SNORT_ALERT_JSON_PATH` | `/opt/ids-hybride/logs/alert_json.txt` | Sortie JSON lue par le dashboard. |
-| `SNORT_INTERFACE` | Auto-détectée (repli `eth0`) | Interface de capture (détection dynamique multi-niveaux). |
-| `SNORT_SECRET_KEY` | *(dev)* | Clé de signature JWT (**à changer en production**). |
-| `SNORT_ADMIN_USER` / `SNORT_ADMIN_PASSWORD` | `admin` / `admin` | Identifiants initiaux. |
-
----
-
-## Documentation
-
-Guides détaillés à la racine du dépôt :
-
-| Document | Contenu |
-|----------|---------|
-| [recherche-ids-opensource.md](./recherche-ids-opensource.md) | Panorama des IDS open source (NIDS/HIDS, Snort, Suricata, Zeek, Wazuh, approche hybride, datasets ML). |
-| [recherche-snort.md](./recherche-snort.md) | Étude approfondie de Snort et de son écosystème. |
-| [guide-01-installation-snort3.md](./guide-01-installation-snort3.md) | Installation et configuration de Snort 3 sur Ubuntu. |
-| [guide-02-regles-snort3.md](./guide-02-regles-snort3.md) | Écriture de règles Snort 3. |
-| [guide-03-integration-wazuh-elk.md](./guide-03-integration-wazuh-elk.md) | Intégration Snort vers Wazuh / ELK. |
-| [guide-04-dashboard.md](./guide-04-dashboard.md) | Le dashboard : architecture, API, démarrage. |
-| [guide-05-passage-en-reel-wsl.md](./guide-05-passage-en-reel-wsl.md) | Passage du mode simulé au vrai Snort dans WSL. |
-| [guide-06-packaging-appliance.md](./guide-06-packaging-appliance.md) | Mode appliance, installeur, installation sur PC vierge. |
-
----
-
-## Pile technique
-
-- **Détection** : Snort 3, règles Talos / Emerging Threats compatibles.
-- **Backend** : Python, FastAPI, uvicorn, JWT.
-- **ML** : scikit-learn (Isolation Forest).
-- **Frontend** : React, Vite, Recharts.
-- **Packaging** : Docker (multi-stage) + supervisor, ou services systemd.
-
-Arborescence :
-
-```
-ids-hybride/
-├── backend/           API FastAPI (contrôleurs mock/linux, ML, auth)
-├── frontend/          UI React (buildée puis servie par le backend)
-├── config/            snort.lua + local.rules (éditables par le dashboard)
-├── scripts/           installation Snort et services (WSL/Linux)
-├── docker/            Dockerfile, supervisor, entrypoint
-├── docker-compose.yml
-├── install.sh         installeur tout-en-un
-└── *.md               recherche et guides
+# Terminal 2 — Frontend avec rechargement à chaud (Hot Reload)
+cd frontend
+npm install
+npm run dev
 ```
 
+* Dashboard de dev : **http://localhost:5173**
+* Documentation Swagger de l'API : **http://localhost:8000/docs**
+
 ---
 
-## Avertissement
+## 🧪 Guide de Prise en Main & Tests de Détection
 
-Projet à visée pédagogique et de laboratoire. Avant tout usage exposé sur un réseau :
-changer les identifiants et `SNORT_SECRET_KEY`, restreindre `HOME_NET`, mettre le dashboard derrière HTTPS et une authentification renforcée, et n'utiliser la capture que sur un réseau dont vous avez la responsabilité.
+Dès que votre appliance tourne sur **`http://<IP>:8000`**, testez le moteur de détection depuis une autre machine du réseau (ou un second terminal) :
+
+### 1. Test ICMP (Ping)
+```bash
+ping <IP_DE_L_APPLIANCE> -c 4
+```
+👉 Ouvrez la page **Alertes** : vous verrez immédiatement apparaître l'alerte `ICMP Ping detecte` (SID `1000001`).
+
+### 2. Test Attaque Web Shell
+```bash
+curl -i "http://<IP_DE_L_APPLIANCE>/?cmd=id"
+```
+👉 L'alerte critique `[Community] Shell web générique (cmd=)` se déclenche en temps réel.
+
+### 3. Test Scanner Nikto
+```bash
+curl -A "Nikto/2.1.6" "http://<IP_DE_L_APPLIANCE>/"
+```
+👉 L'alerte `[ET] Scanner Nikto détecté` s'affiche instantanément.
+
+### 4. Test Détection d'Anomalies (Machine Learning)
+1. Rendez-vous sur la page **ML / Anomalies**.
+2. Cliquez sur le bouton **Entraîner le modèle**.
+3. Le modèle *Isolation Forest* apprend la distribution normale de votre trafic et calcule le score d'anomalie de chaque événement pour révéler les comportements suspects.
+
+---
+
+## 🖥️ Visite Guidée du Dashboard Web
+
+| Écran | Fonctionnalités Clés |
+| :--- | :--- |
+| **Tableau de bord** | Vue d'ensemble opérationnelle : statut du moteur Snort 3, total des alertes, répartition des priorités P1/P2/P3, chronologie des 2 dernières heures, top signatures. |
+| **Gestion des Règles** | Éditeur complet pour `local.rules` : création assistée ou brute, activation/désactivation par bascule (toggle), validation syntaxique `snort -T`, import de packs *Community* et *Emerging Threats*. |
+| **Flux d'Alertes** | Surveillance en direct par WebSocket, filtrage multi-critères (recherche par IP source/destination, signature), pagination fluide et notifications push bureau. |
+| **ML / Anomalies** | Entraînement de l'algorithme *Isolation Forest*, histogramme de distribution des anomalies, identification des événements statistiquement atypiques. |
+| **Analyse PCAP** | Zone de glisser-déposer de captures `.pcap` / `.pcapng` pour analyse forensique immédiate par Snort (`snort -r capture.pcap`) avec restitution des alertes. |
+| **Contrôle du Service** | Démarrer, arrêter, redémarrer Snort 3, surveillance de l'uptime, sélection du module DAQ (`pcap`, `afpacket`, etc.) et des profils de détection. |
+| **Configuration** | Modification assistée des réseaux (`$HOME_NET`, `$EXTERNAL_NET`) et éditeur brut intégré pour [`snort.lua`](./config/snort.lua). |
+| **Système** | Introspection matérielle et logicielle : version exacte de Snort, support Hyperscan, liste exhaustive des codecs, loggers et inspecteurs chargés. |
+| **Logs & Console** | Consultation du journal d'exécution en continu et terminal interactif pour exécuter les commandes Snort en lecture seule (`snort -V`, `snort --daq-list`). |
+
+---
+
+## ⚙️ Variables de Configuration
+
+Le backend se configure via des variables d'environnement (préfixe `SNORT_`) ou via un fichier `.env` :
+
+| Variable | Valeur par défaut | Description |
+| :--- | :--- | :--- |
+| `SNORT_BACKEND` | `linux` (ou `mock`) | Moteur actif : `linux` pour piloter une vraie sonde, `mock` pour simuler. |
+| `SNORT_SERVICE_MANAGER` | `systemd` | Gestionnaire de processus : `systemd` (Linux natif / WSL) ou `supervisor` (Docker). |
+| `SNORT_CONFIG_PATH` | `/opt/ids-hybride/config/snort.lua` | Emplacement du fichier de configuration Snort 3. |
+| `SNORT_RULES_PATH` | `/opt/ids-hybride/config/local.rules` | Emplacement du fichier de règles personnalisées. |
+| `SNORT_ALERT_JSON_PATH` | `/opt/ids-hybride/logs/alert_json.txt` | Fichier journal JSON généré par Snort et consommé par le dashboard. |
+| `SNORT_INTERFACE` | *Auto-détectée* | Interface réseau de capture (détectée dynamiquement, ex: `eth0`, `ens33`). |
+| `SNORT_SECRET_KEY` | `dev-secret-change-me` | Clé secrète de signature des tokens JWT (**à modifier en production**). |
+| `SNORT_ADMIN_USER` | `admin` | Nom d'utilisateur administrateur par défaut. |
+| `SNORT_ADMIN_PASSWORD` | `admin` | Mot de passe administrateur initial. |
+
+---
+
+## 🧪 Tests Automatisés & Validation QA
+
+Le projet intègre une suite complète de tests de non-régression et de résistance aux cas limites :
+
+```bash
+# Exécuter les 103 tests unitaires et d'intégration :
+pytest backend/tests/ -v
+
+# Exécuter la suite de tests adverses & stress tests :
+python run_adversarial_tests.py
+```
+
+### Couverture validée :
+* **Parser d'horodatage Snort 3** : Prise en charge native du format `"MM/dd-HH:mm:ss.uuuuuu"`, déduction de l'année, gestion du 29 février (bissextile) et préservation de `priority=0`.
+* **Lecture inversée haute performance** : Algorithme `file.seek()` par blocs de 64 Ko depuis la fin du fichier, réduisant l'empreinte mémoire d'un facteur 31x sur les fichiers volumineux.
+* **Intégrité de l'API & Authentification** : Tests complets de tous les endpoints protégés par JWT.
+
+---
+
+## 📚 Guides & Documentation Détaillée
+
+Pour approfondir chaque aspect du projet, consultez les guides techniques inclus dans le dépôt :
+
+| Document | Objet |
+| :--- | :--- |
+| 📖 [recherche-ids-opensource.md](./recherche-ids-opensource.md) | Panorama complet des IDS open source (NIDS/HIDS, Suricata, Snort, Zeek, Wazuh, approche hybride et datasets ML). |
+| 📖 [recherche-snort.md](./recherche-snort.md) | Étude détaillée de l'architecture Snort 3 et de son écosystème. |
+| 🛠️ [guide-01-installation-snort3.md](./guide-01-installation-snort3.md) | Compilation et installation de Snort 3 depuis les sources sur Ubuntu. |
+| ✍️ [guide-02-regles-snort3.md](./guide-02-regles-snort3.md) | Guide pratique pour concevoir, tester et valider des règles de détection Snort 3. |
+| 🔗 [guide-03-integration-wazuh-elk.md](./guide-03-integration-wazuh-elk.md) | Export des alertes Snort JSON vers Wazuh et une stack Elastic (ELK). |
+| 💻 [guide-04-dashboard.md](./guide-04-dashboard.md) | Architecture détaillée du Dashboard web et conception de l'API FastAPI. |
+| 🐧 [guide-05-passage-en-reel-wsl.md](./guide-05-passage-en-reel-wsl.md) | Configuration et exécution sous Windows via WSL 2. |
+| 📦 [guide-06-packaging-appliance.md](./guide-06-packaging-appliance.md) | Mode appliance autonome, scripts systemd et déploiement sur serveur dédié. |
+
+---
+
+## 🔒 Sécurité & Production
+
+Avant tout déploiement sur un réseau exposé en production :
+1. **Changez les identifiants initiaux** : Modifiez le mot de passe du compte `admin` depuis la barre latérale ou via la variable d'environnement `SNORT_ADMIN_PASSWORD`.
+2. **Définissez une clé secrète forte** : Renseignez `SNORT_SECRET_KEY` avec une chaîne aléatoire longue.
+3. **Restreignez `$HOME_NET`** : Ajustez la variable de réseau local dans la page **Configuration** pour cibler précisément votre sous-réseau (ex: `192.168.1.0/24`) au lieu de `any`.
+4. **Activez HTTPS** : Placez l'interface derrière un proxy inverse TLS (Nginx, Caddy, Traefik) avec un certificat Let's Encrypt.
+5. **Cadre légal** : Ne capturez et n'analysez le trafic réseau que sur des infrastructures dont vous avez la responsabilité formelle.
+
+---
+
+## 📄 Licence
+
+Ce projet est sous licence MIT — libre d'utilisation, de modification et de distribution.
+Contributeur principal : [Latif Njimoluh](https://github.com/latifnjimoluh).

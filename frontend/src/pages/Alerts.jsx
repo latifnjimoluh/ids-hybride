@@ -1,116 +1,366 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  ShieldAlert,
+  Pause,
+  Play,
+  RefreshCw,
+  Copy,
+  Check,
+  ExternalLink,
+  Layers,
+  ArrowRight,
+  Sliders,
+  Filter
+} from "lucide-react";
 import { useAlerts } from "../AlertsContext.jsx";
+import PageHeader from "../components/layout/PageHeader.jsx";
+import DataTable from "../components/ui/DataTable.jsx";
+import Drawer from "../components/ui/Drawer.jsx";
+import Badge from "../components/ui/Badge.jsx";
+import Button from "../components/ui/Button.jsx";
+import Tooltip from "../components/ui/Tooltip.jsx";
 
-const PRIO_LABEL = { 1: "Haute", 2: "Moyenne", 3: "Basse" };
-const PER_PAGE = 15;
+const PRIO_LABEL = { 1: "Critique (P1)", 2: "Moyenne (P2)", 3: "Basse (P3)" };
 
 export default function Alerts() {
-  const { alerts, connected, notifEnabled, setNotifEnabled, permission, supported, reload } = useAlerts();
-  const [prio, setPrio] = useState("all");
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
+  const navigate = useNavigate();
+  const { alerts, connected, reload } = useAlerts() || { alerts: [], connected: false, reload: () => {} };
 
-  const filtered = useMemo(
-    () =>
-      alerts.filter(
-        (a) =>
-          (prio === "all" || String(a.priority) === prio) &&
-          (!search ||
-            a.msg.toLowerCase().includes(search.toLowerCase()) ||
-            a.src_addr.includes(search) ||
-            a.dst_addr.includes(search))
-      ),
-    [alerts, prio, search]
-  );
+  const [prioFilter, setPrioFilter] = useState("all");
+  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [frozenAlerts, setFrozenAlerts] = useState([]);
+  const [copied, setCopied] = useState(false);
 
-  // Revenir à la page 1 quand les filtres changent
-  useEffect(() => { setPage(1); }, [prio, search]);
+  // Toggle freeze/pause of real-time stream
+  const togglePause = () => {
+    if (!isPaused) {
+      setFrozenAlerts([...alerts]);
+      setIsPaused(true);
+    } else {
+      setIsPaused(false);
+      setFrozenAlerts([]);
+    }
+  };
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
-  const currentPage = Math.min(page, totalPages);
-  const start = (currentPage - 1) * PER_PAGE;
-  const pageItems = filtered.slice(start, start + PER_PAGE);
+  const displayAlerts = isPaused ? frozenAlerts : alerts;
 
-  const fmt = (ts) => new Date(ts).toLocaleString("fr-FR");
-  const denied = permission === "denied";
+  // Filter by priority
+  const filteredAlerts = useMemo(() => {
+    if (prioFilter === "all") return displayAlerts;
+    return displayAlerts.filter(a => String(a.priority) === prioFilter);
+  }, [displayAlerts, prioFilter]);
+
+  const copyJson = (data) => {
+    navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const fmtDate = (ts) => {
+    if (!ts) return "—";
+    try {
+      const d = new Date(ts);
+      return d.toLocaleString("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+      });
+    } catch {
+      return String(ts);
+    }
+  };
+
+  const columns = [
+    {
+      key: "timestamp",
+      label: "Horodatage",
+      width: 170,
+      render: (val) => <span className="mono">{fmtDate(val)}</span>
+    },
+    {
+      key: "priority",
+      label: "Sévérité",
+      width: 90,
+      render: (val) => (
+        <Badge variant={val}>
+          P{val}
+        </Badge>
+      )
+    },
+    {
+      key: "msg",
+      label: "Signature Snort / Message",
+      render: (val) => (
+        <span style={{ fontWeight: 600, color: "var(--soc-text-primary)" }}>
+          {val}
+        </span>
+      )
+    },
+    {
+      key: "proto",
+      label: "Proto",
+      width: 80,
+      render: (val) => <span className="badge neutral mono" style={{ fontSize: 11 }}>{val || "—"}</span>
+    },
+    {
+      key: "src_addr",
+      label: "Source",
+      width: 160,
+      render: (_, row) => (
+        <span className="mono">
+          {row.src_addr}{row.src_port ? `:${row.src_port}` : ""}
+        </span>
+      )
+    },
+    {
+      key: "dst_addr",
+      label: "Destination",
+      width: 160,
+      render: (_, row) => (
+        <span className="mono">
+          {row.dst_addr}{row.dst_port ? `:${row.dst_port}` : ""}
+        </span>
+      )
+    },
+    {
+      key: "sid",
+      label: "SID",
+      width: 90,
+      render: (val) => <span className="mono text-muted">{val ?? "—"}</span>
+    }
+  ];
 
   return (
     <div>
-      <h1 className="page-title">Alertes</h1>
-      <p className="page-sub">
-        Flux temps réel des détections Snort. {filtered.length} alerte(s) — page {currentPage}/{totalPages}.
-      </p>
+      <PageHeader
+        title="Journal des alertes de détection"
+        subtitle={`Flux temps réel des détections de la sonde Snort 3 • ${filteredAlerts.length} événement(s) répertorié(s)`}
+        actions={
+          <div className="flex items-center gap-2">
+            {/* Real-time Pause toggle */}
+            <Button
+              variant={isPaused ? "primary" : "secondary"}
+              size="sm"
+              icon={isPaused ? <Play size={14} /> : <Pause size={14} />}
+              onClick={togglePause}
+            >
+              {isPaused ? "Reprendre le flux direct" : "Figer l'affichage (Pause)"}
+            </Button>
 
-      <div className="toolbar">
-        <input
-          placeholder="🔍 Message, IP source ou destination…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ maxWidth: 300 }}
-        />
-        <select value={prio} onChange={(e) => setPrio(e.target.value)} style={{ maxWidth: 160 }}>
-          <option value="all">Toutes priorités</option>
-          <option value="1">Haute (P1)</option>
-          <option value="2">Moyenne (P2)</option>
-          <option value="3">Basse (P3)</option>
-        </select>
-        <div className="spacer" />
-        <span className="row" style={{ fontSize: 12 }}>
-          <span className={`dot ${connected ? "on" : "off"}`} />
-          {connected ? "Temps réel actif" : "Hors ligne"}
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<RefreshCw size={14} />}
+              onClick={reload}
+            >
+              Actualiser
+            </Button>
+          </div>
+        }
+      />
+
+      {/* Priority Filter Bar */}
+      <div className="flex items-center gap-2" style={{ marginBottom: 16 }}>
+        <Filter size={14} color="var(--soc-text-muted)" />
+        <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--soc-text-secondary)" }}>
+          Filtrer par sévérité :
         </span>
-        <button
-          className={notifEnabled ? "success" : ""}
-          disabled={!supported || denied}
-          onClick={() => setNotifEnabled(!notifEnabled)}
-          title={denied ? "Autorisation refusée dans le navigateur" : "Notifications navigateur"}
-        >
-          {notifEnabled ? "🔔 Notifications ON" : "🔕 Notifications"}
-        </button>
-        <button onClick={reload}>Recharger</button>
+        <div className="flex gap-1">
+          {[
+            { id: "all", label: "Toutes" },
+            { id: "1", label: "Critique (P1)", variant: "prio-1" },
+            { id: "2", label: "Moyenne (P2)", variant: "prio-2" },
+            { id: "3", label: "Basse (P3)", variant: "prio-3" },
+          ].map(btn => (
+            <button
+              key={btn.id}
+              className={`btn sm ${prioFilter === btn.id ? "primary" : "ghost"}`}
+              style={{ fontSize: 11.5, padding: "3px 10px" }}
+              onClick={() => setPrioFilter(btn.id)}
+            >
+              {btn.label}
+            </button>
+          ))}
+        </div>
+
+        {isPaused && (
+          <Badge variant="warning" dot={true} style={{ marginLeft: "auto" }}>
+            FLUX TEMPS RÉEL FIGÉ POUR INVESTIGATION
+          </Badge>
+        )}
       </div>
 
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Horodatage</th>
-              <th>Prio</th>
-              <th>Signature</th>
-              <th>Proto</th>
-              <th>Source</th>
-              <th>Destination</th>
-              <th>SID</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pageItems.map((a, i) => (
-              <tr key={start + i}>
-                <td className="mono">{fmt(a.timestamp)}</td>
-                <td><span className={`badge prio-${a.priority}`}>{PRIO_LABEL[a.priority] || a.priority}</span></td>
-                <td>{a.msg}</td>
-                <td>{a.proto}</td>
-                <td className="mono">{a.src_addr}{a.src_port ? `:${a.src_port}` : ""}</td>
-                <td className="mono">{a.dst_addr}{a.dst_port ? `:${a.dst_port}` : ""}</td>
-                <td className="mono">{a.sid ?? "—"}</td>
-              </tr>
-            ))}
-            {pageItems.length === 0 && (
-              <tr><td colSpan="7" className="muted" style={{ textAlign: "center", padding: 30 }}>
-                Aucune alerte.
-              </td></tr>
+      {/* Modern DataTable */}
+      <DataTable
+        columns={columns}
+        data={filteredAlerts}
+        searchKeys={["msg", "src_addr", "dst_addr", "proto", "sid"]}
+        onRowClick={(row) => setSelectedAlert(row)}
+        exportFilename="snort_alerts"
+        defaultSort={{ key: "timestamp", direction: "desc" }}
+        emptyMessage="Aucune alerte trouvée correspondant aux critères."
+      />
+
+      {/* Forensic Alert Inspection Drawer */}
+      <Drawer
+        isOpen={Boolean(selectedAlert)}
+        onClose={() => setSelectedAlert(null)}
+        title="Détails forensiques de l'alerte"
+        subtitle={selectedAlert?.msg}
+        width={580}
+        footer={
+          <div className="flex items-center justify-between w-full">
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={copied ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
+              onClick={() => copyJson(selectedAlert)}
+            >
+              {copied ? "JSON Copié !" : "Copier le JSON brut"}
+            </Button>
+            {selectedAlert?.sid && (
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Sliders size={14} />}
+                onClick={() => {
+                  setSelectedAlert(null);
+                  navigate(`/rules`);
+                }}
+              >
+                Inspecter la règle (SID {selectedAlert.sid})
+              </Button>
             )}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        }
+      >
+        {selectedAlert && (
+          <div className="flex flex-col gap-4">
+            {/* Severity & Incident Banner */}
+            <div
+              style={{
+                padding: "16px",
+                borderRadius: 8,
+                background: selectedAlert.priority === 1
+                  ? "rgba(239, 68, 68, 0.12)"
+                  : selectedAlert.priority === 2
+                  ? "rgba(245, 158, 11, 0.12)"
+                  : "rgba(56, 189, 248, 0.12)",
+                border: `1px solid ${
+                  selectedAlert.priority === 1
+                    ? "rgba(239, 68, 68, 0.3)"
+                    : selectedAlert.priority === 2
+                    ? "rgba(245, 158, 11, 0.3)"
+                    : "rgba(56, 189, 248, 0.3)"
+                }`
+              }}
+            >
+              <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
+                <Badge variant={selectedAlert.priority} dot={true}>
+                  {PRIO_LABEL[selectedAlert.priority] || `Priorité ${selectedAlert.priority}`}
+                </Badge>
+                <span className="mono text-muted" style={{ fontSize: 11.5 }}>
+                  {fmtDate(selectedAlert.timestamp)}
+                </span>
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--soc-text-primary)" }}>
+                {selectedAlert.msg}
+              </div>
+            </div>
 
-      <div className="toolbar" style={{ marginTop: 14, justifyContent: "center" }}>
-        <button className="sm" disabled={currentPage <= 1} onClick={() => setPage(1)}>« Début</button>
-        <button className="sm" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>‹ Précédent</button>
-        <span className="mono" style={{ fontSize: 13 }}>{currentPage} / {totalPages}</span>
-        <button className="sm" disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)}>Suivant ›</button>
-        <button className="sm" disabled={currentPage >= totalPages} onClick={() => setPage(totalPages)}>Fin »</button>
-      </div>
+            {/* Network Vector Section */}
+            <div className="card" style={{ padding: 16 }}>
+              <h4 style={{ margin: "0 0 12px", fontSize: 12.5, textTransform: "uppercase", color: "var(--soc-text-secondary)" }}>
+                Vecteur Réseau
+              </h4>
+              <div className="grid cols-2" style={{ gap: 12 }}>
+                <div>
+                  <label>Adresse Source</label>
+                  <div className="mono" style={{ fontSize: 13, color: "var(--soc-text-primary)" }}>
+                    {selectedAlert.src_addr || "—"}
+                  </div>
+                  <div className="mono text-muted" style={{ fontSize: 11.5 }}>
+                    Port: {selectedAlert.src_port ?? "—"}
+                  </div>
+                </div>
+
+                <div>
+                  <label>Adresse Destination</label>
+                  <div className="mono" style={{ fontSize: 13, color: "var(--soc-text-primary)" }}>
+                    {selectedAlert.dst_addr || "—"}
+                  </div>
+                  <div className="mono text-muted" style={{ fontSize: 11.5 }}>
+                    Port: {selectedAlert.dst_port ?? "—"}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--soc-border)" }}>
+                <div className="flex items-center gap-4">
+                  <div>
+                    <label>Protocole</label>
+                    <span className="badge neutral mono">{selectedAlert.proto || "TCP"}</span>
+                  </div>
+                  {selectedAlert.action && (
+                    <div>
+                      <label>Action Moteur</label>
+                      <span className="badge neutral mono">{selectedAlert.action}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Snort Metadata Section */}
+            <div className="card" style={{ padding: 16 }}>
+              <h4 style={{ margin: "0 0 12px", fontSize: 12.5, textTransform: "uppercase", color: "var(--soc-text-secondary)" }}>
+                Métadonnées Snort 3
+              </h4>
+              <div className="grid cols-2" style={{ gap: 12 }}>
+                <div>
+                  <label>Snort SID</label>
+                  <span className="mono" style={{ fontWeight: 700, color: "var(--soc-accent)" }}>
+                    {selectedAlert.sid ?? "—"}
+                  </span>
+                </div>
+                <div>
+                  <label>Classification</label>
+                  <span style={{ fontSize: 12.5, color: "var(--soc-text-primary)" }}>
+                    {selectedAlert.classtype || "Non classifié"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Raw JSON Dump */}
+            <div className="card" style={{ padding: 16 }}>
+              <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
+                <h4 style={{ margin: 0, fontSize: 12.5, textTransform: "uppercase", color: "var(--soc-text-secondary)" }}>
+                  Payload JSON brut
+                </h4>
+              </div>
+              <pre
+                className="mono"
+                style={{
+                  background: "#080c14",
+                  padding: 12,
+                  borderRadius: 6,
+                  border: "1px solid var(--soc-border)",
+                  fontSize: 11.5,
+                  overflowX: "auto",
+                  margin: 0
+                }}
+              >
+                {JSON.stringify(selectedAlert, null, 2)}
+              </pre>
+            </div>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }

@@ -40,7 +40,7 @@ Si la commande affiche `ok`, WSL2 est opérationnel. Sinon, voir la section Dép
 Ouvre Ubuntu (WSL) et lance le script d'installation. Il demande le mot de passe sudo une fois et compile Snort 3 (10 à 30 minutes) :
 
 ```bash
-bash /mnt/d/Formation/Project/ids-hybride/scripts/install-snort3-wsl.sh
+bash scripts/install-snort3-wsl.sh
 ```
 
 À la fin, le script affiche la version de Snort et valide la configuration. Il a créé :
@@ -56,7 +56,7 @@ bash /mnt/d/Formation/Project/ids-hybride/scripts/install-snort3-wsl.sh
 Le mode `linux` utilise `systemctl` et `journalctl`, qui nécessitent systemd. Lance :
 
 ```bash
-bash /mnt/d/Formation/Project/ids-hybride/scripts/setup-service-wsl.sh
+bash scripts/setup-service-wsl.sh
 ```
 
 La première exécution active systemd dans `/etc/wsl.conf`. Il faut alors recharger WSL **depuis PowerShell** :
@@ -80,7 +80,7 @@ systemctl status snort3
 Toujours dans WSL :
 
 ```bash
-bash /mnt/d/Formation/Project/ids-hybride/scripts/run-backend-wsl.sh
+bash scripts/run-backend-wsl.sh
 ```
 
 Ce script crée un venv Linux (dans le home WSL), installe les dépendances, et lance le backend avec `SNORT_BACKEND=linux` sur le port 8000. Grâce au partage `localhost` de WSL2, il est accessible depuis Windows sur `http://localhost:8000`.

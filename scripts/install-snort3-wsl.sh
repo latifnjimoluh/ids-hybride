@@ -2,7 +2,7 @@
 #
 # Installation de Snort 3 dans WSL Ubuntu pour le projet ids-hybride.
 # À lancer DANS WSL (Ubuntu) après le redémarrage du PC :
-#     bash /mnt/d/Formation/Project/ids-hybride/scripts/install-snort3-wsl.sh
+#     bash scripts/install-snort3-wsl.sh
 #
 # Le script demande le mot de passe sudo une fois. Compilation : 10 à 30 min.
 set -euo pipefail

@@ -94,21 +94,38 @@ L'image inclut Snort 3, libDAQ, le moteur Machine Learning, le backend FastAPI e
 > **Capture réseau selon l'environnement.**
 > - Sur **Docker Desktop** (Windows / macOS), le conteneur tourne dans une VM : la capture *live* ne voit pas le trafic de l'hôte. Tout le reste fonctionne (interface, règles, **analyse PCAP**, ML, système, console) ; utilisez la page **Analyse PCAP** pour inspecter de vraies captures.
 > - Sur **Linux natif**, décommentez `network_mode: host` dans `docker-compose.yml` : Snort capture alors le vrai trafic de la machine.
-> - Pour de la capture live continue sur Windows, préférez l'installeur natif dans WSL (`install.sh`), où Snort capture l'interface `eth0` de WSL.
+> - Pour de la capture live continue sur Windows, préférez l'installeur natif dans WSL (`install.sh`), où Snort capture automatiquement l'interface réseau active.
 
-### Option 2 : Installeur natif (WSL / Linux)
+### Option 2 : Installeur natif — Appliance autonome (WSL / Linux)
 
-Pour installer directement sur une machine (ou dans WSL sous Windows).
+Pour installer une appliance prête à l'emploi directement sur une machine Linux (bare-metal, VM ou WSL 2 sous Windows) :
 
 ```bash
 git clone https://github.com/latifnjimoluh/ids-hybride.git
 cd ids-hybride
-bash install.sh
+sudo bash install.sh
 ```
 
-Le script installe Snort 3, build le frontend, déploie le backend et crée les services systemd `snort3` + `ids-dashboard` (démarrage automatique au boot). Interface sur **http://localhost:8000**.
+**Options avancées :**
+```bash
+sudo bash install.sh [-d /opt/ids-hybride] [-i <interface>] [--rebuild-frontend]
+```
+- `-d, --dir <PATH>` : Chemin de déploiement (défaut : `/opt/ids-hybride`).
+- `-i, --interface <IFACE>` : Interface réseau pour la capture (défaut : auto-détection dynamique multi-niveaux).
+- `--rebuild-frontend` : Recompilation forcée du frontend React.
 
-Sous Windows, il faut d'abord WSL2 : `wsl --install` (PowerShell admin), puis lancer les commandes ci-dessus dans Ubuntu. Détails et dépannage dans [guide-06-packaging-appliance.md](./guide-06-packaging-appliance.md).
+Le script installe Snort 3, synchronise le projet vers le répertoire cible, build l'UI React vers `frontend/dist`, configure l'environnement virtuel Python (`venv`), initialise les fichiers de logs avec permissions sécurisées, puis crée et démarre les services systemd `snort3.service` et `ids-dashboard.service`.
+
+L'interface web est immédiatement disponible sur le réseau local : **http://&lt;IP&gt;:8000** et en local sur **http://localhost:8000** (identifiants par défaut : `admin` / `admin`).
+
+**Gestion des services systemd :**
+```bash
+sudo systemctl status snort3 ids-dashboard
+sudo systemctl restart ids-dashboard
+journalctl -u ids-dashboard -f
+```
+
+Sous Windows, activez WSL 2 (`wsl --install` en PowerShell admin), puis lancez les commandes dans Ubuntu. Détails complets dans [guide-06-packaging-appliance.md](./guide-06-packaging-appliance.md).
 
 ### Option 3 : Mode développement
 
@@ -151,11 +168,11 @@ Variables d'environnement du backend (préfixe `SNORT_`) :
 | Variable | Défaut | Rôle |
 |----------|--------|------|
 | `SNORT_BACKEND` | `mock` | `mock` (simulé) ou `linux` (vrai Snort). |
-| `SNORT_SERVICE_MANAGER` | `systemd` | `systemd` (WSL/VM) ou `supervisor` (conteneur). |
-| `SNORT_CONFIG_PATH` | `/usr/local/etc/snort/snort.lua` | Fichier de config Snort. |
-| `SNORT_RULES_PATH` | `.../local.rules` | Fichier de règles. |
-| `SNORT_ALERT_JSON_PATH` | `/var/log/snort/alert_json.txt` | Sortie JSON lue par le dashboard. |
-| `SNORT_INTERFACE` | `eth0` | Interface de capture. |
+| `SNORT_SERVICE_MANAGER` | `systemd` | `systemd` (WSL/VM/Appliance) ou `supervisor` (conteneur). |
+| `SNORT_CONFIG_PATH` | `/opt/ids-hybride/config/snort.lua` | Fichier de config Snort (repli `/usr/local/etc/snort/snort.lua`). |
+| `SNORT_RULES_PATH` | `/opt/ids-hybride/config/local.rules` | Fichier de règles locales éditables. |
+| `SNORT_ALERT_JSON_PATH` | `/opt/ids-hybride/logs/alert_json.txt` | Sortie JSON lue par le dashboard. |
+| `SNORT_INTERFACE` | Auto-détectée (repli `eth0`) | Interface de capture (détection dynamique multi-niveaux). |
 | `SNORT_SECRET_KEY` | *(dev)* | Clé de signature JWT (**à changer en production**). |
 | `SNORT_ADMIN_USER` / `SNORT_ADMIN_PASSWORD` | `admin` / `admin` | Identifiants initiaux. |
 

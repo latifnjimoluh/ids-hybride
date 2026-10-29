@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------
 -- snort.lua : configuration autonome du projet ids-hybride
 -- Charge les valeurs par défaut par chemin absolu (dofile) pour ne pas
--- dépendre de SNORT_LUA_PATH. Editable par le dashboard (fichier sur /mnt/d).
+-- dépendre de SNORT_LUA_PATH. Editable par le dashboard.
 ---------------------------------------------------------------------------
 
 -- Les variables réseau doivent être définies AVANT le chargement des défauts,
@@ -35,12 +35,26 @@ binder =
 ---------------------------------------------------------------------------
 -- Détection (règles locales du projet)
 ---------------------------------------------------------------------------
+local rules_path = os.getenv('SNORT_RULES_PATH') or '/opt/ids-hybride/config/local.rules'
+local _rule_file = io.open(rules_path, 'r')
+if _rule_file then
+    _rule_file:close()
+else
+    local _src = debug.getinfo(1).source
+    if _src and _src:sub(1, 1) == '@' then
+        local _dir = _src:sub(2):match('(.*/)') or './'
+        local _rf = io.open(_dir .. 'local.rules', 'r')
+        if _rf then
+            _rf:close()
+            rules_path = _dir .. 'local.rules'
+        end
+    end
+end
+
 ips =
 {
     variables = default_variables,
-    rules = [[
-        include /mnt/d/Formation/Project/ids-hybride/config/local.rules
-    ]],
+    rules = 'include ' .. rules_path .. '\n',
 }
 
 ---------------------------------------------------------------------------

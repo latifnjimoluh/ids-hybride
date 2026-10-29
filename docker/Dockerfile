@@ -53,9 +53,8 @@ RUN python3 -m venv /opt/venv \
  && /opt/venv/bin/pip install --no-cache-dir -U pip \
  && /opt/venv/bin/pip install --no-cache-dir -r backend/requirements.txt
 
-# Config Snort du projet (chemins réécrits pour l'arborescence du conteneur)
+# Config Snort du projet
 COPY config/ ./config/
-RUN sed -i "s#/mnt/d/Formation/Project/ids-hybride#/opt/ids-hybride#g" config/snort.lua
 
 # Frontend buildé (servi par le backend)
 COPY --from=frontend /app/frontend/dist ./frontend/dist

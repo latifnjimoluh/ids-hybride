@@ -91,23 +91,31 @@ export default function TopBar({ onToggleSidebar, sidebarCollapsed }) {
           </Button>
         )}
 
-        <div className="flex items-center gap-2">
-          {snortStatus.running ? (
-            <Badge variant="success" dot={true}>
-              <span className="mono" style={{ fontWeight: 700 }}>SNORT 3 EN LIGNE</span>
-              {snortStatus.pid && (
-                <span style={{ opacity: 0.8, fontSize: 11 }}>PID:{snortStatus.pid}</span>
-              )}
-            </Badge>
-          ) : (
-            <Badge variant="prio-1">
-              <span className="mono" style={{ fontWeight: 700 }}>SNORT 3 ARRÊTÉ</span>
-            </Badge>
-          )}
-        </div>
+        <Tooltip
+          text={snortStatus.running ? "Moteur Snort 3 actif et capture en cours" : "Moteur Snort 3 arrêté"}
+          position="bottom"
+        >
+          <div className="flex items-center gap-2">
+            {snortStatus.running ? (
+              <Badge variant="success" dot={true}>
+                <span className="mono" style={{ fontWeight: 700 }}>SNORT 3 EN LIGNE</span>
+                {snortStatus.pid && (
+                  <span style={{ opacity: 0.8, fontSize: 11 }}>PID:{snortStatus.pid}</span>
+                )}
+              </Badge>
+            ) : (
+              <Badge variant="prio-1">
+                <span className="mono" style={{ fontWeight: 700 }}>SNORT 3 ARRÊTÉ</span>
+              </Badge>
+            )}
+          </div>
+        </Tooltip>
 
         {/* WebSocket Indicator */}
-        <Tooltip text={connected ? "Flux WebSocket temps réel actif" : "Connexion WebSocket interrompue, reconnexion..."}>
+        <Tooltip
+          text={connected ? "Flux WebSocket temps réel actif" : "Connexion WebSocket interrompue, reconnexion..."}
+          position="bottom"
+        >
           <div
             className="flex items-center gap-1"
             style={{
@@ -136,7 +144,7 @@ export default function TopBar({ onToggleSidebar, sidebarCollapsed }) {
 
       {/* Center: Quick Alert Badges */}
       <div className="flex items-center gap-2">
-        <Tooltip text="Alertes critiques P1">
+        <Tooltip text="Alertes critiques P1" position="bottom">
           <button
             className="btn ghost sm"
             onClick={() => navigate("/alerts")}
@@ -148,7 +156,7 @@ export default function TopBar({ onToggleSidebar, sidebarCollapsed }) {
           </button>
         </Tooltip>
 
-        <Tooltip text="Alertes d'avertissement P2">
+        <Tooltip text="Alertes d'avertissement P2" position="bottom">
           <button
             className="btn ghost sm"
             onClick={() => navigate("/alerts")}
@@ -160,7 +168,7 @@ export default function TopBar({ onToggleSidebar, sidebarCollapsed }) {
           </button>
         </Tooltip>
 
-        <Tooltip text="Alertes informatives P3">
+        <Tooltip text="Alertes informatives P3" position="bottom">
           <button
             className="btn ghost sm"
             onClick={() => navigate("/alerts")}
@@ -176,16 +184,21 @@ export default function TopBar({ onToggleSidebar, sidebarCollapsed }) {
       {/* Right: Clock + Notification Bell + User Profile + Logout */}
       <div className="flex items-center gap-3">
         {/* UTC Clock */}
-        <div
-          className="flex items-center gap-1 mono text-muted"
-          style={{ fontSize: 12, paddingRight: 6 }}
-        >
-          <Clock size={13} />
-          <span>{timeUtc}</span>
-        </div>
+        <Tooltip text="Horloge universelle synchronisée" position="bottom">
+          <div
+            className="flex items-center gap-1 mono text-muted"
+            style={{ fontSize: 12, paddingRight: 6 }}
+          >
+            <Clock size={13} />
+            <span>{timeUtc}</span>
+          </div>
+        </Tooltip>
 
         {/* Browser Notifications Toggle */}
-        <Tooltip text={notifEnabled ? "Désactiver les alertes navigateur" : "Activer les alertes navigateur"}>
+        <Tooltip
+          text={notifEnabled ? "Désactiver les alertes navigateur" : "Activer les alertes navigateur"}
+          position="bottom"
+        >
           <Button
             variant="ghost"
             size="sm"
@@ -197,21 +210,23 @@ export default function TopBar({ onToggleSidebar, sidebarCollapsed }) {
         </Tooltip>
 
         {/* User Badge */}
-        <div
-          className="flex items-center gap-2"
-          style={{
-            background: "var(--soc-bg-elevated)",
-            padding: "4px 10px",
-            borderRadius: 6,
-            border: "1px solid var(--soc-border)"
-          }}
-        >
-          <User size={14} color="var(--soc-accent)" />
-          <span style={{ fontSize: 12.5, fontWeight: 600 }}>{auth.user || "admin"}</span>
-        </div>
+        <Tooltip text={`Connecté en tant que ${auth.user || "admin"}`} position="bottom">
+          <div
+            className="flex items-center gap-2"
+            style={{
+              background: "var(--soc-bg-elevated)",
+              padding: "4px 10px",
+              borderRadius: 6,
+              border: "1px solid var(--soc-border)"
+            }}
+          >
+            <User size={14} color="var(--soc-accent)" />
+            <span style={{ fontSize: 12.5, fontWeight: 600 }}>{auth.user || "admin"}</span>
+          </div>
+        </Tooltip>
 
         {/* Logout */}
-        <Tooltip text="Déconnexion de l'appliance">
+        <Tooltip text="Déconnexion de l'appliance" position="bottom-left">
           <Button
             variant="ghost"
             size="sm"

@@ -6,10 +6,12 @@ export default function Tooltip({ text, children, position = "top", className = 
   if (!text) return children;
 
   const positionStyles = {
-    top: { bottom: "100%", left: "50%", transform: "translateX(-50%) translateY(-6px)" },
-    bottom: { top: "100%", left: "50%", transform: "translateX(-50%) translateY(6px)" },
-    right: { left: "100%", top: "50%", transform: "translateY(-50%) translateX(6px)" },
-    left: { right: "100%", top: "50%", transform: "translateY(-50%) translateX(-6px)" },
+    top: { bottom: "100%", top: "auto", left: "50%", right: "auto", transform: "translateX(-50%) translateY(-6px)" },
+    bottom: { top: "100%", bottom: "auto", left: "50%", right: "auto", transform: "translateX(-50%) translateY(6px)" },
+    "bottom-left": { top: "100%", bottom: "auto", right: "0", left: "auto", transform: "translateY(6px)" },
+    "bottom-right": { top: "100%", bottom: "auto", left: "0", right: "auto", transform: "translateY(6px)" },
+    right: { left: "100%", right: "auto", top: "50%", bottom: "auto", transform: "translateY(-50%) translateX(6px)" },
+    left: { right: "100%", left: "auto", top: "50%", bottom: "auto", transform: "translateY(-50%) translateX(-6px)" },
   };
 
   return (

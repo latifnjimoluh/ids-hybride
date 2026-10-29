@@ -277,18 +277,18 @@ class TestAdversarialReverseReader:
         """
         repo_root = backend_dir.parent
         real_log = repo_root / "logs" / "alert_json.txt"
-        if real_log.exists():
+        if real_log.exists() and real_log.stat().st_size >= 5 * 1024 * 1024:
             log_path = real_log
         else:
-            # Generate synthetic 6MB file
+            # Generate synthetic >= 5.5MB file (logs/ is gitignored in CI)
             log_path = tmp_path / "synthetic_6mb.txt"
             with log_path.open("w", encoding="utf-8") as fh:
-                for i in range(20000):
+                for i in range(50000):
                     fh.write(
                         json.dumps({
                             "timestamp": f"10/23-{i % 24:02d}:{(i // 60) % 60:02d}:{i % 60:02d}.000000",
                             "action": "allow",
-                            "msg": f"Alert {i:06d}",
+                            "msg": f"Alert {i:06d} padding_extra_bytes_for_size_safety",
                             "priority": 1,
                             "sid": 1000000 + i,
                         }) + "\n"

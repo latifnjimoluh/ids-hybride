@@ -18,4 +18,5 @@ logs/
 *.log
 .agents/
 .pytest_cache/
+.pytest_tmp/
 .coverage

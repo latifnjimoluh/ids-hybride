@@ -138,4 +138,43 @@ curl -s -A "Nikto" "http://<IP_DE_LA_VM>:8000/"
 
 Les alertes apparaissent instantanément sur le Dashboard Web sans recharger la page,
 avec incrémentation des compteurs P1 / P2 / P3 et notifications en temps réel.
+
+--------------------------------------------------------------------------------
+8. METTRE A JOUR LE PROJET DEPLOYE SUR DES PC / VM
+--------------------------------------------------------------------------------
+
+Si vous apportez des modifications au code (nouvelles règles, modifications de
+l'interface, amélioration du backend Python, etc.) et poussez sur GitHub,
+voici la procédure pour appliquer la mise à jour sur les machines :
+
+Option 1 : Via le script automatique update.sh (1 commande)
+-----------------------------------------------------------
+Sur chaque machine Ubuntu où le projet est installé, placez-vous dans le
+répertoire du projet cloné et lancez :
+
+  cd ids-hybride
+  sudo bash update.sh
+
+Le script fait tout automatiquement :
+  1. git pull (télécharge les nouveautés depuis GitHub)
+  2. Synchronise les fichiers vers /opt/ids-hybride (sans toucher à vos logs)
+  3. Met à jour les paquets Python dans le venv
+  4. Recompile le frontend React
+  5. Redémarre snort3 et ids-dashboard sans coupure prolongée
+  6. Valide le bon fonctionnement (Health Check)
+
+Option 2 : Mise à jour manuelle étape par étape (si souhaité)
+------------------------------------------------------------
+  cd ids-hybride
+  git pull origin main
+  sudo cp -r backend frontend config /opt/ids-hybride/
+  sudo /opt/ids-hybride/venv/bin/pip install -r /opt/ids-hybride/backend/requirements.txt
+  (cd /opt/ids-hybride/frontend && npm install && npm run build)
+  sudo systemctl restart snort3 ids-dashboard
+
+Option 3 : Si déployé via Docker
+--------------------------------
+Si des PC utilisent la version Docker :
+  docker compose pull
+  docker compose up -d
 ================================================================================

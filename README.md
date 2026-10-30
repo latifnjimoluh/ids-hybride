@@ -166,6 +166,14 @@ journalctl -u snort3 -f
 journalctl -u ids-dashboard -f
 ```
 
+#### 🔄 Mettre à jour l'appliance après des modifications :
+Dès que vous poussez de nouvelles modifications sur votre dépôt GitHub :
+```bash
+cd ids-hybride
+sudo bash update.sh
+```
+*Le script effectue le `git pull`, met à jour les dépendances Python, recompile l'UI React et redémarre proprement les services `systemd` sans perte de logs.*
+
 ---
 
 ### Méthode 3 : Mode Développement Local

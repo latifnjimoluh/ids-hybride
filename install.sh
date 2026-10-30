@@ -169,6 +169,8 @@ if [ "$SRC_DIR" != "$TARGET_DIR" ]; then
     sudo cp -a "$SRC_DIR/config" "$TARGET_DIR/"
     sudo cp -a "$SRC_DIR/scripts" "$TARGET_DIR/"
     [ -f "$SRC_DIR/install.sh" ] && sudo cp -a "$SRC_DIR/install.sh" "$TARGET_DIR/"
+    [ -f "$SRC_DIR/update.sh" ] && sudo cp -a "$SRC_DIR/update.sh" "$TARGET_DIR/"
+    [ -f "$SRC_DIR/INSTALLATION_UBUNTU.txt" ] && sudo cp -a "$SRC_DIR/INSTALLATION_UBUNTU.txt" "$TARGET_DIR/"
     [ -f "$SRC_DIR/README.md" ] && sudo cp -a "$SRC_DIR/README.md" "$TARGET_DIR/"
   fi
 fi

@@ -1,0 +1,141 @@
+================================================================================
+          GUIDE D'INSTALLATION PERMANENTE IDS-HYBRIDE SUR UBUNTU (VM / DEDIE)
+================================================================================
+
+Ce guide détaille l'installation complète, autonome et permanente d'IDS-Hybride
+sur une machine virtuelle Ubuntu (VirtualBox, VMware, Proxmox, Hyper-V, KVM)
+ou un serveur dédié Ubuntu 22.04 / 24.04 LTS.
+
+L'installation configure les services en arrière-plan via systemd avec redémarrage
+automatique à chaque boot, sauf arrêt manuel par l'administrateur.
+
+--------------------------------------------------------------------------------
+1. CONFIGURATION DU RESEAU DE LA MACHINE VIRTUELLE
+--------------------------------------------------------------------------------
+
+Pour pouvoir accéder à l'interface web depuis le navigateur de votre PC hôte,
+choisissez l'une des deux configurations dans votre hyperviseur :
+
+* Option A : Mode "Accès par pont" (Bridged Adapter) - RECOMMANDE
+  - La VM obtient sa propre adresse IP sur votre réseau local (ex: 192.168.1.50).
+  - L'accès se fait directement sur : http://<IP_DE_LA_VM>:8000
+
+* Option B : Mode "NAT" avec Redirection de Port
+  - Si vous préférez rester en NAT, créez une règle de redirection dans les
+    paramètres réseau de la VM :
+      - Protocole   : TCP
+      - Port hôte   : 8000
+      - Port invité : 8000
+  - L'accès se fera directement sur : http://localhost:8000
+
+--------------------------------------------------------------------------------
+2. COMMANDES D'INSTALLATION DANS LE TERMINAL UBUNTU
+--------------------------------------------------------------------------------
+
+Ouvrez le terminal de votre machine virtuelle Ubuntu (ou une session SSH) et
+exécutez les 3 étapes suivantes :
+
+# Étape 2.1 : Mise à jour des paquets et prérequis
+sudo apt update && sudo apt install -y git curl
+
+# Étape 2.2 : Cloner le dépôt officiel
+git clone https://github.com/latifnjimoluh/ids-hybride.git
+cd ids-hybride
+
+# Étape 2.3 : Lancer l'installeur tout-en-un
+sudo bash install.sh
+
+* Remarque : Le script détecte automatiquement votre interface réseau active.
+  Si vous souhaitez forcer une carte spécifique (ex: ens33, enp0s3, eth0) :
+  sudo bash install.sh -i ens33
+
+--------------------------------------------------------------------------------
+3. CE QUE FAIT LE SCRIPT AUTOMATIQUEMENT
+--------------------------------------------------------------------------------
+
+1. Auto-détection de la carte réseau active via le noyau Linux (ip route).
+2. Installation et compilation de Snort 3 et de libDAQ.
+3. Déploiement propre dans le répertoire cible /opt/ids-hybride.
+4. Compilation des assets du frontend React (SOC Dashboard).
+5. Création de l'environnement virtuel Python (/opt/ids-hybride/venv) et
+   installation de FastAPI, Uvicorn, Scikit-Learn.
+6. Initialisation du fichier de logs /opt/ids-hybride/logs/alert_json.txt.
+7. Création et activation permanente des 2 services systemd :
+     - /etc/systemd/system/snort3.service
+     - /etc/systemd/system/ids-dashboard.service
+
+--------------------------------------------------------------------------------
+4. GESTION DU PARE-FEU UBUNTU (SI ACTIF)
+--------------------------------------------------------------------------------
+
+Si le pare-feu ufw est actif sur votre machine Ubuntu, autorisez le port 8000 :
+
+sudo ufw allow 8000/tcp
+sudo ufw status
+
+--------------------------------------------------------------------------------
+5. ACCES AU DASHBOARD WEB SOC
+--------------------------------------------------------------------------------
+
+1. Obtenez l'adresse IP de votre machine Ubuntu :
+   hostname -I
+
+2. Ouvrez votre navigateur sur :
+   - Mode Bridged : http://<IP_DE_LA_VM>:8000
+   - Mode NAT     : http://localhost:8000
+
+3. Identifiants de connexion par défaut :
+   - Nom d'utilisateur : admin
+   - Mot de passe      : admin
+
+--------------------------------------------------------------------------------
+6. COMMANDES DE GESTION SYSTEMD (PERMANENCE ET ARRET MANUEL)
+--------------------------------------------------------------------------------
+
+Les deux services sont configurés avec "Restart=always" et activés au boot
+(WantedBy=multi-user.target). Même après un redémarrage (sudo reboot), ils se
+relancent automatiquement.
+
+* Vérifier l'état en direct :
+  sudo systemctl status ids-dashboard
+  sudo systemctl status snort3
+
+* Stopper manuellement le système :
+  sudo systemctl stop ids-dashboard snort3
+
+* Démarrer manuellement le système :
+  sudo systemctl start ids-dashboard snort3
+
+* Redémarrer les services après une modification :
+  sudo systemctl restart ids-dashboard snort3
+
+* Désactiver le démarrage automatique au boot :
+  sudo systemctl disable ids-dashboard snort3
+
+* Réactiver le démarrage automatique au boot :
+  sudo systemctl enable ids-dashboard snort3
+
+* Consulter les logs applicatifs en temps réel :
+  sudo journalctl -u ids-dashboard -f
+
+* Consulter les logs de capture Snort 3 en temps réel :
+  sudo journalctl -u snort3 -f
+
+--------------------------------------------------------------------------------
+7. TESTER UNE DETECTION D'ATTAQUE EN DIRECT
+--------------------------------------------------------------------------------
+
+Depuis une autre machine ou un autre terminal, lancez ces requêtes de test :
+
+# Test 1 : Détection ICMP Ping (Règle sid:1000001)
+ping -c 3 <IP_DE_LA_VM>
+
+# Test 2 : Détection Injection de commande web (Règle sid:2100005)
+curl -s "http://<IP_DE_LA_VM>:8000/?cmd=id"
+
+# Test 3 : Détection Scanner de vulnérabilités Nikto (Règle sid:2200001)
+curl -s -A "Nikto" "http://<IP_DE_LA_VM>:8000/"
+
+Les alertes apparaissent instantanément sur le Dashboard Web sans recharger la page,
+avec incrémentation des compteurs P1 / P2 / P3 et notifications en temps réel.
+================================================================================
